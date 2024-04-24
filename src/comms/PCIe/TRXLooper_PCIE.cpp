@@ -180,6 +180,8 @@ int TRXLooper_PCIE::TxSetup()
     const int upperAllocationLimit =
         65536; //sizeof(complex32f_t) * mTx.packetsToBatch * samplesInPkt * chCount + SamplesPacketType::headerSize;
     mTx.memPool = new MemoryPool(1024, upperAllocationLimit, 4096, name);
+    // Initialize DMA
+    mTxArgs.port->TxDMAEnable(true);
     return 0;
 }
 
@@ -224,8 +226,6 @@ void TRXLooper_PCIE::TransmitPacketsLoop()
     AvgRmsCounter txTSAdvance;
     AvgRmsCounter transferSize;
 
-    // Initialize DMA
-    mTxArgs.port->TxDMAEnable(true);
     // thread ready for work, just wait for stream enable
     {
         std::unique_lock<std::mutex> lk(streamMutex);
@@ -236,6 +236,7 @@ void TRXLooper_PCIE::TransmitPacketsLoop()
 
     auto t1 = perfClock::now();
     auto t2 = t1;
+    t1 -= std::chrono::seconds(10) ;
 
     LitePCIe::DMAState state;
     state.swIndex = 0;
@@ -723,7 +724,7 @@ void TRXLooper_PCIE::ReceivePacketsLoop()
             pkt = reinterpret_cast<const FPGA_RxDataPacket*>(&buffer[packetSize * i]);
             if (pkt->counter - expectedTS != 0)
             {
-                //lime::info("Loss: pkt:%i exp: %li, got: %li, diff: %li", stats.packets+i, expectedTS, pkt->counter, pkt->counter-expectedTS);
+                lime::warning("%s Loss: pkt:%li exp: %li, got: %li, diff: %li\n", mRxArgs.port->GetPathName().c_str(), stats.packets+i, expectedTS, pkt->counter, pkt->counter-expectedTS);
                 ++stats.loss;
                 loss.add(1);
             }

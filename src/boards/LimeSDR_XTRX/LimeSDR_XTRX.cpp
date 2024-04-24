@@ -320,6 +320,9 @@ OpStatus LimeSDR_XTRX::Init()
         uint16_t val;
     };
 
+    mFPGA->StopStreaming();
+    mFPGA->ResetTimestamp();
+
     const std::vector<regVal> mFPGAInitVals = {
         { 0x00D1, 0x3357 }, // RF Switches
     };

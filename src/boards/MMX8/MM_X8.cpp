@@ -133,13 +133,18 @@ OpStatus LimeSDR_MMX8::Configure(const SDRConfig& cfg, uint8_t socIndex)
 OpStatus LimeSDR_MMX8::Init()
 {
     OpStatus status = OpStatus::Success;
+    std::vector<uint8_t> indexes;
     for (size_t i = 0; i < mSubDevices.size(); ++i)
     {
         // TODO: check if the XTRX board slot is populated
         status = mSubDevices[i]->Init();
+        indexes.push_back(i);
         if (status != OpStatus::Success)
             return status;
     }
+    FPGA tempFPGA(mMainFPGAcomms, nullptr);
+    tempFPGA.WriteRegister(0x000A, 0);
+    StreamStop(indexes);
     return status;
 }
 
@@ -610,9 +615,10 @@ ChannelConfig::Direction::TestSignal LimeSDR_MMX8::GetTestSignal(uint8_t moduleI
 
     return mSubDevices[moduleIndex]->GetTestSignal(0, direction, channel);
 }
-
+static uint16_t lanes = 0;
 OpStatus LimeSDR_MMX8::StreamSetup(const StreamConfig& config, uint8_t moduleIndex)
 {
+    lanes |= 1 << moduleIndex*2;
     OpStatus ret = mSubDevices[moduleIndex]->StreamSetup(config, 0);
     if (ret != OpStatus::Success)
         return ret;
@@ -638,8 +644,9 @@ void LimeSDR_MMX8::StreamStart(const std::vector<uint8_t> moduleIndexes)
     {
         mask |= (1 << (2 * moduleIndex));
     }
-    tempFPGA.WriteRegister(0x000A, interface_ctrl_000A & ~mask);
-    tempFPGA.WriteRegister(0x000A, interface_ctrl_000A | mask);
+    uint16_t lanesMask = mask | lanes;
+    // tempFPGA.WriteRegister(0x000A, interface_ctrl_000A & ~lanesMask);
+    tempFPGA.WriteRegister(0x000A, interface_ctrl_000A | lanesMask);
 }
 
 void LimeSDR_MMX8::StreamStop(uint8_t moduleIndex)
@@ -658,6 +665,7 @@ void LimeSDR_MMX8::StreamStop(const std::vector<uint8_t> moduleIndexes)
     {
         mask |= (1 << (2 * moduleIndex));
     }
+    mask |= lanes;
     tempFPGA.WriteRegister(0x000A, interface_ctrl_000A & ~mask);
     for (uint8_t moduleIndex : moduleIndexes)
         mSubDevices[moduleIndex]->StreamStop(0);

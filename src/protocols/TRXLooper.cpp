@@ -133,7 +133,7 @@ OpStatus TRXLooper::Setup(const StreamConfig& cfg)
     const uint16_t smpl_width = cfg.linkFormat == DataFormat::I12 ? 2 : 0;
     fpga->WriteRegister(0x0008, mode | smpl_width);
     fpga->WriteRegister(0x0007, channelEnables);
-    fpga->ResetTimestamp();
+//    fpga->ResetTimestamp();
 
     // XTRX has RF switches control bits where the GPS_PPS control should be.
     bool hasGPSPPS = fpga->ReadRegister(0x0000) != LMS_DEV_LIMESDR_XTRX;
