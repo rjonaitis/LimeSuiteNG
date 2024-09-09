@@ -205,6 +205,11 @@ OpStatus TRXLooper::Start()
         mRx.terminate.store(false, std::memory_order_relaxed);
         mRx.fifo->clear();
     }
+    if (mTx.stagingPacket)
+    {
+        mTx.memPool->Free(mTx.stagingPacket);
+        mTx.stagingPacket = nullptr;
+    }
     if (mTx.fifo)
     {
         mTx.terminate.store(false, std::memory_order_relaxed);
