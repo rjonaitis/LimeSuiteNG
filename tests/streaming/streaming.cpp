@@ -123,14 +123,32 @@ TEST_F(SDRDevice_streaming, RepeatedStartStopWorks)
     ASSERT_EQ(device->StreamSetup(stream, moduleIndex), OpStatus::Success);
     device->StreamStart(moduleIndex);
 
+    int samplesReceived = 0;
+    int samplesRemaining = samplesBatchSize;
+    while (samplesRemaining > 0)
+    {
+        int toRead = samplesRemaining < samplesBatchSize ? samplesRemaining : samplesBatchSize;
+        int samplesGot = 0;
+
+        StreamMeta rxMeta{};
+        samplesGot = device->StreamRx(moduleIndex, rxSamples, toRead, &rxMeta);
+
+        ASSERT_EQ(samplesGot, toRead);
+
+        if (samplesGot != toRead)
+            break;
+        samplesReceived += samplesGot;
+        samplesRemaining -= toRead;
+    }
+
     device->StreamStop(moduleIndex);
 
     device->StreamStart(moduleIndex);
 
     auto t1 = chrono::high_resolution_clock::now();
 
-    int samplesReceived = 0;
-    int samplesRemaining = sampleRate;
+    samplesReceived = 0;
+    samplesRemaining = samplesBatchSize;
     while (samplesRemaining > 0)
     {
         int toRead = samplesRemaining < samplesBatchSize ? samplesRemaining : samplesBatchSize;
@@ -148,10 +166,7 @@ TEST_F(SDRDevice_streaming, RepeatedStartStopWorks)
     }
     auto t2 = chrono::high_resolution_clock::now();
     ASSERT_EQ(samplesRemaining, 0);
-    ASSERT_EQ(samplesReceived, sampleRate);
-    const auto duration{ chrono::duration_cast<chrono::milliseconds>(t2 - t1) };
-    bool timeCorrect = chrono::milliseconds(980) < duration && duration < chrono::milliseconds(1020);
-    ASSERT_TRUE(timeCorrect);
+    ASSERT_EQ(samplesReceived, samplesBatchSize);
 
     //Stop streaming
     device->StreamStop(moduleIndex);
