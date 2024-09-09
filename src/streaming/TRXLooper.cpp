@@ -197,7 +197,12 @@ OpStatus TRXLooper::Start()
 
     if (mRx.stagingPacket)
     {
-        mRx.memPool->Free(mRx.stagingPacket);
+        while (mRx.stagingPacket != nullptr)
+        {
+            mRx.memPool->Free(mRx.stagingPacket);
+            mRx.stagingPacket = nullptr;
+            mRx.fifo->pop(&mRx.stagingPacket, false);
+        }
         mRx.stagingPacket = nullptr;
     }
     if (mRx.fifo)
@@ -207,8 +212,12 @@ OpStatus TRXLooper::Start()
     }
     if (mTx.stagingPacket)
     {
-        mTx.memPool->Free(mTx.stagingPacket);
-        mTx.stagingPacket = nullptr;
+        while (mTx.stagingPacket != nullptr)
+        {
+            mTx.memPool->Free(mTx.stagingPacket);
+            mTx.stagingPacket = nullptr;
+            mTx.fifo->pop(&mTx.stagingPacket, false);
+        }
     }
     if (mTx.fifo)
     {
@@ -218,6 +227,7 @@ OpStatus TRXLooper::Start()
 
     // Rx start
     {
+        mRx.lastTimestamp.store(0, std::memory_order_relaxed);
         const int32_t readSize = mRxArgs.packetSize * mRxArgs.packetsToBatch;
         constexpr uint8_t irqPeriod{ 4 };
         // Rx DMA has to be enabled before the stream enable, otherwise some data
@@ -244,7 +254,7 @@ void TRXLooper::Stop()
     fpga->StopStreaming();
 
     // wait for loop ends
-    if (mRx.stage.load(std::memory_order_relaxed) == Stream::ReadyStage::Active)
+    if (mRx.stage.load(std::memory_order_relaxed) != Stream::ReadyStage::Disabled)
     {
         mRx.terminate.store(true, std::memory_order_relaxed);
         mRxArgs.dma->Enable(false);
@@ -264,10 +274,10 @@ void TRXLooper::Stop()
     }
 
     // wait for loop ends
-    if (mTx.stage.load(std::memory_order_relaxed) == Stream::ReadyStage::Active)
+    if (mTx.stage.load(std::memory_order_relaxed) != Stream::ReadyStage::Disabled)
     {
         mTx.terminate.store(true, std::memory_order_relaxed);
-        mTxArgs.dma->Enable(false);
+        // mTxArgs.dma->Enable(false);
         lime::debug("TRXLooper: wait for Tx loop end."s);
         {
             std::unique_lock lck{ mTx.mutex };
@@ -283,17 +293,21 @@ void TRXLooper::Stop()
             char msg[512];
             std::snprintf(msg,
                 sizeof(msg),
-                "Tx%i stop: host sent packets: %li (0x%08lX), FPGA packet ingresed: %i (0x%08X), diff: %li, Tx packet dropped: %i",
+                "Tx%i stop: host sent packets: %li (0x%08lX), FPGA packet ingresed: %i (0x%08X), diff: %li, Tx packet dropped: "
+                "%i|%i",
                 chipId,
                 mTx.stats.packets,
                 mTx.stats.packets,
                 fpgaTxPktIngressCount,
                 fpgaTxPktIngressCount,
                 (mTx.stats.packets & 0xFFFFFFFF) - fpgaTxPktIngressCount,
-                fpgaTxPktDropCounter);
+                fpgaTxPktDropCounter,
+                mTx.stats.underrun);
             mCallback_logMessage(LogLevel::Verbose, msg);
         }
     }
+    fpga->ResetPacketCounters(chipId);
+    fpga->ResetTimestamp();
 }
 
 /// @brief Stops all the running streams and clears up the memory.

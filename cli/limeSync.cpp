@@ -325,10 +325,10 @@ int main(int argc, char** argv)
     if (chipIndexes.empty() && device->GetDescriptor().rfSOC.size() == 1)
         chipIndexes.push_back(0);
 
+    StreamConfig stream;
     try
     {
         // Samples data streaming configuration
-        StreamConfig stream;
         for (int i = 0; i < channelCount; ++i)
         {
             stream.channels.at(TRXDir::Rx).push_back(i);
@@ -351,17 +351,17 @@ int main(int argc, char** argv)
                     aggregates[i].channels.push_back(j);
             }
             composite = new StreamComposite(std::move(aggregates));
-            composite->StreamSetup(stream);
+            //composite->StreamSetup(stream);
         }
         else
         {
             chipIndex = chipIndexes.empty() ? 0 : chipIndexes[0];
-            OpStatus status = device->StreamSetup(stream, chipIndex);
-            if (status != OpStatus::Success)
-            {
-                cerr << "Failed to setup data stream.\n";
-                return EXIT_FAILURE;
-            }
+            // OpStatus status = device->StreamSetup(stream, chipIndex);
+            // if (status != OpStatus::Success)
+            // {
+            //     cerr << "Failed to setup data stream.\n";
+            //     return EXIT_FAILURE;
+            // }
         }
     } catch (std::runtime_error& e)
     {
@@ -377,7 +377,7 @@ int main(int argc, char** argv)
     if (sampleRate <= 0)
         sampleRate = 1; // sample rate read-back not available, assign default value
 
-    int chirp_len = 256;
+    int chirp_len = 1360 / 2;
     double fs = 1e6;
     double chirpTime = chirp_len / fs;
     auto chirp = GenerateChirp(chirpTime, fs, 0.005, 0.04);
@@ -396,23 +396,29 @@ int main(int argc, char** argv)
         printf("\t| Rx%i  ", i);
     printf("\n");
 
-    for (int TxIndex = 1; TxIndex >= 0; --TxIndex) //channelCount; ++TxIndex)
+    for (int TxIndex = 0; TxIndex < channelCount; ++TxIndex)
     {
+        if (useComposite)
+            composite->StreamSetup(stream);
+        else
+            device->StreamSetup(stream, chipIndex);
+
         std::vector<int> sampleOffsets;
-        OpStatus ret = MeasureChannelDelays(device, composite, useComposite, chirp, channelCount, sampleRate, 0, sampleOffsets);
+        OpStatus ret =
+            MeasureChannelDelays(device, composite, useComposite, chirp, channelCount, sampleRate, TxIndex, sampleOffsets);
         if (ret != OpStatus::Success)
             break;
+
+        if (useComposite)
+            composite->StreamDestroy();
+        else
+            device->StreamDestroy(chipIndex);
 
         printf("Tx%i ", TxIndex);
         for (const auto& v : sampleOffsets)
             printf("\t %4i", v);
         printf("\n");
     }
-
-    if (useComposite)
-        composite->StreamDestroy();
-    else
-        device->StreamDestroy(chipIndex);
 
     if (composite)
         delete composite;
