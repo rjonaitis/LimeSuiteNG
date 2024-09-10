@@ -171,9 +171,7 @@ static std::vector<int> SyncSamples(
     return offsets;
 }
 
-OpStatus MeasureChannelDelays(SDRDevice* device,
-    StreamComposite* composite,
-    bool useComposite,
+OpStatus MeasureChannelDelays(StreamComposite* rxComposite, StreamComposite* txComposite,
     const std::vector<complex32f_t>& chirp,
     uint8_t channelCount,
     double sampleRate,
@@ -186,7 +184,6 @@ OpStatus MeasureChannelDelays(SDRDevice* device,
     txMeta.waitForTimestamp = true;
     txMeta.timestamp = sampleRate / 100; // send tx samples 100ms after start
     txMeta.flushPartialPacket = true;
-    const int chipIndex = 0;
 
     const uint32_t toSend = chirp.size();
 
@@ -206,14 +203,11 @@ OpStatus MeasureChannelDelays(SDRDevice* device,
         rxBuffers[i] = rxChannel[i].data();
     }
 
-    if (useComposite)
-        composite->StreamStart();
-    else
-        device->StreamStart(chipIndex);
+    rxComposite->StreamStart();
+    txComposite->StreamStart();
 
     // send chirp
-    uint32_t samplesSent = useComposite ? composite->StreamTx(txSamples.data(), toSend, &txMeta)
-                                        : device->StreamTx(chipIndex, txSamples.data(), toSend, &txMeta);
+    uint32_t samplesSent = txComposite->StreamTx(txSamples.data(), toSend, &txMeta);
     if (samplesSent != toSend)
         return OpStatus::IOFailure;
 
@@ -226,8 +220,7 @@ OpStatus MeasureChannelDelays(SDRDevice* device,
     {
         auto timeout = std::chrono::microseconds(1000000);
         const uint32_t toRead = samplesToSkip > rxSize ? rxSize : samplesToSkip;
-        const uint32_t samplesRead = useComposite ? composite->StreamRx(rxBuffers, toRead, &rxMeta, timeout)
-                                                  : device->StreamRx(chipIndex, rxBuffers, toRead, &rxMeta, timeout);
+        const uint32_t samplesRead = rxComposite->StreamRx(rxBuffers, toRead, &rxMeta, timeout);
         if (samplesRead != toRead)
         {
             status = OpStatus::IOFailure;
@@ -236,21 +229,12 @@ OpStatus MeasureChannelDelays(SDRDevice* device,
         samplesToSkip -= samplesRead;
     }
 
-    const uint32_t samplesRead =
-        useComposite ? composite->StreamRx(rxBuffers, rxSize, &rxMeta) : device->StreamRx(chipIndex, rxBuffers, rxSize, &rxMeta);
+    const uint32_t samplesRead = rxComposite->StreamRx(rxBuffers, rxSize, &rxMeta);
     if (samplesRead != rxSize)
         status = OpStatus::IOFailure;
 
-    if (useComposite)
-    {
-        composite->StreamStop();
-        // composite->StreamDestroy();
-    }
-    else
-    {
-        device->StreamStop(chipIndex);
-        // device->StreamDestroy(chipIndex);
-    }
+    rxComposite->StreamStop();
+    txComposite->StreamStop();
 
     for (int c = 0; c < channelCount; ++c)
         PlotSamples(rxBuffers[c], rxSize);
@@ -302,10 +286,8 @@ int main(int argc, char** argv)
 
     std::vector<int> chipIndexes = ParseIntArray(chipFlag);
 
-    StreamComposite* composite = nullptr;
     logVerbosity = strToLogLevel(args::get(logFlag));
     int chipIndex = 0;
-    bool useComposite = false;
 
     auto handles = DeviceRegistry::enumerate();
     if (handles.size() == 0)
@@ -324,54 +306,6 @@ int main(int argc, char** argv)
     // if chip index is not specified and device has only one, use it by default
     if (chipIndexes.empty() && device->GetDescriptor().rfSOC.size() == 1)
         chipIndexes.push_back(0);
-
-    StreamConfig stream;
-    try
-    {
-        // Samples data streaming configuration
-        for (int i = 0; i < channelCount; ++i)
-        {
-            stream.channels.at(TRXDir::Rx).push_back(i);
-            stream.channels.at(TRXDir::Tx).push_back(i);
-        }
-
-        stream.format = DataFormat::F32;
-        stream.linkFormat = DataFormat::I12;
-
-        useComposite = chipIndexes.size() > 1;
-        if (useComposite)
-        {
-            std::vector<StreamAggregate> aggregates(chipIndexes.size());
-            for (size_t i = 0; i < chipIndexes.size(); ++i)
-            {
-                aggregates[i].device = device;
-                aggregates[i].streamIndex = chipIndexes[i];
-                int deviceChannelCount = device->GetDescriptor().rfSOC[chipIndexes[i]].channelCount;
-                for (int j = 0; j < deviceChannelCount; ++j)
-                    aggregates[i].channels.push_back(j);
-            }
-            composite = new StreamComposite(std::move(aggregates));
-            //composite->StreamSetup(stream);
-        }
-        else
-        {
-            chipIndex = chipIndexes.empty() ? 0 : chipIndexes[0];
-            // OpStatus status = device->StreamSetup(stream, chipIndex);
-            // if (status != OpStatus::Success)
-            // {
-            //     cerr << "Failed to setup data stream.\n";
-            //     return EXIT_FAILURE;
-            // }
-        }
-    } catch (std::runtime_error& e)
-    {
-        std::cout << "Failed to configure settings: "sv << e.what() << std::endl;
-        return -1;
-    } catch (std::logic_error& e)
-    {
-        std::cout << "Failed to configure settings: "sv << e.what() << std::endl;
-        return -1;
-    }
 
     float sampleRate = device->GetSampleRate(chipIndex, TRXDir::Rx, 0);
     if (sampleRate <= 0)
@@ -396,23 +330,56 @@ int main(int argc, char** argv)
         printf("\t| Rx%i  ", i);
     printf("\n");
 
+    const std::vector<uint32_t> rxChannelsToTest = {0, 1, 2, 3, 4, 5, 6, 7, 8};
+
+    SDRDevice* refDevice = device;
+    const int refChipIndex = 0;
+
     for (int TxIndex = 0; TxIndex < channelCount; ++TxIndex)
     {
-        if (useComposite)
-            composite->StreamSetup(stream);
-        else
-            device->StreamSetup(stream, chipIndex);
+        StreamConfig stream;
+        for (int i = 0; i < channelCount; ++i)
+        {
+            if (i == TxIndex)
+                continue;
+            stream.channels.at(TRXDir::Rx).push_back(i);
+        }
+
+        stream.format = DataFormat::F32;
+        stream.linkFormat = DataFormat::I12;
+
+
+        std::vector<StreamAggregate> aggregates(chipIndexes.size());
+        for (size_t i = 0; i < chipIndexes.size(); ++i)
+        {
+            aggregates[i].device = device;
+            aggregates[i].streamIndex = chipIndexes[i];
+            int deviceChannelCount = device->GetDescriptor().rfSOC[chipIndexes[i]].channelCount;
+            for (int j = 0; j < deviceChannelCount; ++j)
+                aggregates[i].channels.push_back(j);
+        }
+        StreamComposite rxComposite(std::move(aggregates));
+        rxComposite.StreamSetup(stream);
+
+        aggregates.clear();
+        aggregates.resize(1);
+        aggregates[0].device = refDevice;
+        aggregates[0].streamIndex = refChipIndex;
+        StreamComposite txComposite(std::move(aggregates));
+        {
+            stream.channels.at(TRXDir::Rx).clear();
+            stream.channels.at(TRXDir::Tx).push_back(TxIndex);
+        }
+        txComposite.StreamSetup(stream);
 
         std::vector<int> sampleOffsets;
         OpStatus ret =
-            MeasureChannelDelays(device, composite, useComposite, chirp, channelCount, sampleRate, TxIndex, sampleOffsets);
+            MeasureChannelDelays(&rxComposite, &txComposite, chirp, channelCount, sampleRate, TxIndex, sampleOffsets);
         if (ret != OpStatus::Success)
             break;
 
-        if (useComposite)
-            composite->StreamDestroy();
-        else
-            device->StreamDestroy(chipIndex);
+        rxComposite.StreamDestroy();
+        txComposite.StreamDestroy();
 
         printf("Tx%i ", TxIndex);
         for (const auto& v : sampleOffsets)
@@ -420,8 +387,6 @@ int main(int argc, char** argv)
         printf("\n");
     }
 
-    if (composite)
-        delete composite;
     DeviceRegistry::freeDevice(device);
     return 0;
 }
