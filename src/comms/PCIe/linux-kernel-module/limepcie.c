@@ -1391,7 +1391,10 @@ static int limepcie_device_init(struct limepcie_device *myDevice, struct pci_dev
     }
     else
     {
-        const uint32_t dmaBufferSize = 65536; // actual buffer on device can be smaller, but they support scatter/gather
+        // TODO: decouple dma memory allocation size and dma_map_single size.
+        // dma_sync_single_for_cpu/dma_sync_single_for_device flushes the full mapped buffer size, even if only fraction of it is actually used.
+        // Flushing large mappings causes performance issues on Arm.
+        const uint32_t dmaBufferSize = PAGE_SIZE > 8192 ? PAGE_SIZE : 8192; // Host side buffer size
         int32_t dmaFullDuplexChannels = limepcie_readl(myDevice, CSR_CNTRL_NDMA_ADDR);
         if (dmaFullDuplexChannels > MAX_DMA_CHANNEL_COUNT || dmaFullDuplexChannels < 0)
         {
