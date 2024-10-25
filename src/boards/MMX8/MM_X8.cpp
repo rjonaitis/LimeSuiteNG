@@ -674,8 +674,8 @@ void LimeSDR_MMX8::StreamStop(const std::vector<uint8_t>& moduleIndexes)
         mask |= (1 << (2 * moduleIndex));
     }
     maskStreamIsActive &= ~mask;
-    // for (uint8_t moduleIndex : moduleIndexes) // subDevice streams stop postponed to StreamDestroy
-    //     mSubDevices[moduleIndex]->StreamStop(0);
+    for (uint8_t moduleIndex : moduleIndexes) // subDevice streams stop postponed to StreamDestroy
+        mSubDevices[moduleIndex]->StreamStop(0);
     tempFPGA.WriteRegister(0x000A, interface_ctrl_000A & ~mask);
 }
 
