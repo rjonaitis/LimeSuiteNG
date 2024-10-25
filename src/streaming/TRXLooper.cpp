@@ -818,6 +818,10 @@ OpStatus TRXLooper::TxSetup()
     }
 
     mTx.packetsToBatch = 8; // Tx packets can be flushed early without filling whole batch
+    // aim batch size to desired data output period, ~100us should be good enough
+    if (mConfig.hintSampleRate > 0)
+        mTx.packetsToBatch = std::floor((0.0001 * mConfig.hintSampleRate) / mTx.samplesInPkt);
+
     if (mConfig.extraConfig.tx.packetsInBatch != 0)
     {
         mTx.packetsToBatch = mConfig.extraConfig.tx.packetsInBatch;
