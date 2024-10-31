@@ -372,6 +372,8 @@ void limeGUIFrame::OnDeviceHandleChange(wxCommandEvent& event)
             return;
         }
 
+        lmsControl->SetMessageLogCallback(&limeGUIFrame::OnGlobalLogEvent);
+
         //bind callback for spi data logging
         const SDRDescriptor& info = lmsControl->GetDescriptor();
         wxString controlDev = _("Device: ");

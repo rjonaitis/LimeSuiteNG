@@ -170,6 +170,7 @@ LimeSDR_X3::LimeSDR_X3(std::shared_ptr<IComms> spiLMS7002M,
     , mfpgaPort(spiFPGA)
     , mConfigInProgress(false)
 {
+    mStreamers.resize(3);
     /// Do not perform any unnecessary configuring to device in constructor, so you
     /// could read back it's state for debugging purposes
     SDRDescriptor& desc = mDeviceDescriptor;
@@ -240,24 +241,6 @@ LimeSDR_X3::LimeSDR_X3(std::shared_ptr<IComms> spiLMS7002M,
         std::unique_ptr<LMS7002M> lms3 = std::make_unique<LMS7002M>(mLMS7002Mcomms[2]);
         lms3->ModifyRegistersDefaults(limesdrx3::lms2and3defaultsOverride);
         mLMSChips.push_back(std::move(lms3));
-    }
-
-    mStreamers.reserve(mLMSChips.size());
-    for (size_t i = 0; i < mLMSChips.size(); ++i)
-    {
-        mLMSChips[i]->SetConnection(mLMS7002Mcomms[i]);
-
-        if (i < mTRXStreamPorts.size())
-        {
-            std::shared_ptr<LimePCIe> trxPort{ mTRXStreamPorts.at(i) };
-            auto rxdma = std::make_shared<LimePCIeDMA>(trxPort, DataTransferDirection::DeviceToHost);
-            auto txdma = std::make_shared<LimePCIeDMA>(trxPort, DataTransferDirection::HostToDevice);
-
-            std::unique_ptr<TRXLooper> streamer = std::make_unique<TRXLooper>(rxdma, txdma, mFPGA.get(), mLMSChips.at(i).get(), i);
-            mStreamers.push_back(std::move(streamer));
-        }
-        else
-            lime::warning("X3 RF%i data stream is not available", 0);
     }
 
     auto fpgaNode = std::make_shared<DeviceTreeNode>("FPGA"s, eDeviceTreeNodeClass::FPGA_X3, mFPGA.get());
@@ -1189,6 +1172,31 @@ OpStatus LimeSDR_X3::UploadTxWaveform(const StreamConfig& config, uint8_t module
 {
     // TODO: return TRXLooper::UploadTxWaveform(mFPGA, txdma, config, moduleIndex, samples, count);
     return OpStatus::Error;
+}
+
+std::unique_ptr<lime::RFStream> LimeSDR_X3::StreamCreate(const StreamConfig& config, uint8_t moduleIndex)
+{
+    if (moduleIndex >= mTRXStreamPorts.size())
+    {
+        lime::warning("X3 RF%i data stream is not available", 0);
+        return std::unique_ptr<RFStream>(nullptr);
+    }
+
+    std::shared_ptr<LimePCIe> trxPort{ mTRXStreamPorts.at(moduleIndex) };
+    auto rxdma = std::make_shared<LimePCIeDMA>(trxPort, DataTransferDirection::DeviceToHost);
+    auto txdma = std::make_shared<LimePCIeDMA>(trxPort, DataTransferDirection::HostToDevice);
+
+    std::unique_ptr<TRXLooper> streamer =
+        std::make_unique<TRXLooper>(rxdma, txdma, mFPGA.get(), mLMSChips.at(moduleIndex).get(), moduleIndex);
+    if (!streamer)
+        return streamer;
+
+    if (mCallback_logMessage)
+        streamer->SetMessageLogCallback(mCallback_logMessage);
+    OpStatus status = streamer->Setup(config);
+    if (status != OpStatus::Success)
+        return std::unique_ptr<RFStream>(nullptr);
+    return streamer;
 }
 
 } //namespace lime

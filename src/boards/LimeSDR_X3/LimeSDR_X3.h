@@ -50,6 +50,8 @@ class LimeSDR_X3 : public LMS7002M_SDRDevice
     OpStatus MemoryRead(std::shared_ptr<DataStorage> storage, Region region, void* data) override;
     OpStatus UploadTxWaveform(const StreamConfig& config, uint8_t moduleIndex, const void** samples, uint32_t count) override;
 
+    std::unique_ptr<lime::RFStream> StreamCreate(const StreamConfig& config, uint8_t moduleIndex) override;
+
   private:
     OpStatus InitLMS1(bool skipTune = false);
     OpStatus InitLMS2(bool skipTune = false);

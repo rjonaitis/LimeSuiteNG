@@ -19,7 +19,6 @@ endif()
 ## lime suite library
 ########################################################################
 set(LIME_SUITE_SOURCES
-    StreamComposite.cpp
     CommonFunctions.cpp
     OEMTesting.cpp
     logger/Logger.cpp
@@ -34,6 +33,8 @@ set(LIME_SUITE_SOURCES
     API/LimePlugin.cpp
     include/limesuiteng/SDRDevice.cpp
     utilities/toString.cpp)
+
+SET_SOURCE_FILES_PROPERTIES( include/limesuiteng/SDRDevice.cpp PROPERTIES COMPILE_FLAGS -Wno-deprecated-declarations )
 
 set_source_files_properties(mcu_program/common_src/lms7002m_controls.c PROPERTIES LANGUAGE CXX)
 

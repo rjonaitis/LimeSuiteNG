@@ -105,6 +105,7 @@ LimeSDR::LimeSDR(std::shared_ptr<IComms> spiLMS,
     , mfpgaPort(spiFPGA)
     , mConfigInProgress(false)
 {
+    mStreamers.resize(1);
     SDRDescriptor descriptor = GetDeviceInfo();
 
     mFPGA = std::make_unique<FPGA>(spiFPGA, spiLMS);
@@ -120,18 +121,6 @@ LimeSDR::LimeSDR(std::shared_ptr<IComms> spiLMS,
         chip->SetConnection(mlms7002mPort);
         chip->SetOnCGENChangeCallback(UpdateFPGAInterface, this);
         mLMSChips.push_back(std::move(chip));
-    }
-
-    {
-        mStreamers.reserve(mLMSChips.size());
-        constexpr uint8_t rxBulkEndpoint = 0x81;
-        constexpr uint8_t txBulkEndpoint = 0x01;
-        auto rxdma = std::make_shared<USBDMAEmulation>(mStreamPort, rxBulkEndpoint, DataTransferDirection::DeviceToHost);
-        auto txdma = std::make_shared<USBDMAEmulation>(mStreamPort, txBulkEndpoint, DataTransferDirection::HostToDevice);
-
-        ResetUSBFIFO();
-        mStreamers.push_back(std::make_unique<TRXLooper>(
-            std::static_pointer_cast<IDMA>(rxdma), std::static_pointer_cast<IDMA>(txdma), mFPGA.get(), mLMSChips.at(0).get(), 0));
     }
 
     auto fpgaNode = std::make_shared<DeviceTreeNode>("FPGA"s, eDeviceTreeNodeClass::FPGA, mFPGA.get());
@@ -435,8 +424,6 @@ void LimeSDR::ResetUSBFIFO()
 {
     lime::debug("LimeSDR: resetting USB FIFO");
     // Don't reset USB FIFO if stream is running, otherwise data will stop.
-    if (!mStreamers.empty() && mStreamers.at(0) != nullptr)
-        assert(!mStreamers.at(0)->IsStreamRunning());
     LMS64CPacket pkt;
     pkt.cmd = Command::USB_FIFO_RST;
     pkt.status = CommandStatus::Undefined;
@@ -520,6 +507,27 @@ OpStatus LimeSDR::MemoryRead(std::shared_ptr<DataStorage> storage, Region region
     if (storage == nullptr || storage->ownerDevice != this || storage->memoryDeviceType != eMemoryDevice::EEPROM)
         return OpStatus::Error;
     return mfpgaPort->MemoryRead(region.address, data, region.size);
+}
+
+std::unique_ptr<lime::RFStream> LimeSDR::StreamCreate(const StreamConfig& config, uint8_t moduleIndex)
+{
+    constexpr uint8_t rxBulkEndpoint = 0x81;
+    constexpr uint8_t txBulkEndpoint = 0x01;
+    auto rxdma = std::make_shared<USBDMAEmulation>(mStreamPort, rxBulkEndpoint, DataTransferDirection::DeviceToHost);
+    auto txdma = std::make_shared<USBDMAEmulation>(mStreamPort, txBulkEndpoint, DataTransferDirection::HostToDevice);
+
+    ResetUSBFIFO();
+    std::unique_ptr<TRXLooper> streamer = std::make_unique<TRXLooper>(
+        std::static_pointer_cast<IDMA>(rxdma), std::static_pointer_cast<IDMA>(txdma), mFPGA.get(), mLMSChips.at(0).get(), 0);
+    if (!streamer)
+        return streamer;
+
+    if (mCallback_logMessage)
+        streamer->SetMessageLogCallback(mCallback_logMessage);
+    OpStatus status = streamer->Setup(config);
+    if (status != OpStatus::Success)
+        return std::unique_ptr<RFStream>(nullptr);
+    return streamer;
 }
 
 } // namespace lime

@@ -10,6 +10,8 @@
 #include <sstream>
 #include <string_view>
 
+#include "streaming/StreamComposite.h"
+
 #include "limesuiteng/LMS7002M.h"
 #include "limesuiteng/DeviceHandle.h"
 #include "limesuiteng/DeviceRegistry.h"
@@ -301,9 +303,8 @@ int LimePlugin_Stop(LimePluginContext* context)
 {
     for (auto& port : context->ports)
     {
-        if (!port.composite)
-            continue;
-        port.composite->StreamStop();
+        if (port.stream)
+            port.stream->Stop();
     }
     return 0;
 }
@@ -496,6 +497,25 @@ static OpStatus AssignDevicesToPorts(LimePluginContext* context)
             // which will later be modified by individual device parameter overrides
             assignedDevice->configInputs = port.configInputs;
         }
+        // assign calibration device
+        if (!port.calibrationDeviceName.empty())
+        {
+            std::string_view token{ port.calibrationDeviceName };
+            if (token.find("dev"sv) != 0)
+            {
+                // invalid device name
+                Log(LogLevel::Error, "Port%i assigned invalid calibration device (%s).", p, std::string{ token }.c_str());
+                return OpStatus::InvalidValue;
+            }
+            token.remove_prefix(3);
+            std::stringstream sstream{ std::string{ token } };
+            int devIndex;
+            sstream >> devIndex;
+            DevNode* assignedDevice = &context->rfdev.at(devIndex);
+            port.calibrationNode = assignedDevice;
+            assignedDevice->portIndex = p;
+            assignedDevice->assignedToPort = true;
+        }
     }
     return OpStatus::Success;
 }
@@ -570,13 +590,9 @@ static OpStatus GatherPortSettings(LimePluginContext* context, LimeSettingsProvi
         char portPrefix[16];
         std::snprintf(portPrefix, sizeof(portPrefix), "port%i", i);
         GatherConfigSettings(&port.configInputs, settings, portPrefix);
+        GetSetting(settings, &port.calibrationDeviceName, "%s_calibration_dev", portPrefix);
         if (GetSetting(settings, &port.deviceNames, "%s", portPrefix))
-        {
             ++specifiedPortsCount;
-            OpStatus status = AssignDevicesToPorts(context);
-            if (status != OpStatus::Success)
-                return status;
-        }
     }
 
     if (specifiedPortsCount == 0)
@@ -584,7 +600,7 @@ static OpStatus GatherPortSettings(LimePluginContext* context, LimeSettingsProvi
         Log(LogLevel::Error, "No ports have been specified.");
         return OpStatus::Error;
     }
-    return OpStatus::Success;
+    return AssignDevicesToPorts(context);
 }
 
 static OpStatus TransferDeviceDirectionalSettings(
@@ -850,29 +866,10 @@ OpStatus ConfigureStreaming(LimePluginContext* context, const LimeRuntimeParamet
         if (port.nodes.empty())
             continue;
 
-        StreamConfig stream;
-        stream.channels[TRXDir::Rx].resize(params->rf_ports[p].rx_channel_count);
-        stream.channels[TRXDir::Tx].resize(params->rf_ports[p].tx_channel_count);
-        stream.linkFormat = port.configInputs.linkFormat;
-        stream.format = context->samplesFormat;
-        stream.extraConfig.negateQ = port.configInputs.double_freq_conversion_to_lower_side;
-        stream.extraConfig.waitPPS = port.configInputs.syncPPS;
-        stream.extraConfig.rx.samplesInPacket = 0;
-        stream.extraConfig.rx.packetsInBatch = 0;
-        stream.extraConfig.tx.packetsInBatch = 0;
-        stream.extraConfig.tx.samplesInPacket = 0;
+        std::vector<std::unique_ptr<RFStream>> aggregates;
 
-        // Initialize streams and map channels
-        for (size_t ch = 0; ch < stream.channels[TRXDir::Rx].size(); ++ch)
-            stream.channels[TRXDir::Rx][ch] = ch;
-        for (size_t ch = 0; ch < stream.channels[TRXDir::Tx].size(); ++ch)
-            stream.channels[TRXDir::Tx][ch] = ch;
-
-        stream.statusCallback = OnStreamStatusChange;
-        stream.userData = static_cast<void*>(&portStreamStates[p]);
-        stream.hintSampleRate = params->rf_ports[p].sample_rate;
-
-        std::vector<StreamAggregate> aggregates;
+        int rx_required = params->rf_ports[p].rx_channel_count;
+        int tx_required = params->rf_ports[p].tx_channel_count;
         for (auto& dev : port.nodes)
         {
             if (!dev->assignedToPort)
@@ -880,26 +877,125 @@ OpStatus ConfigureStreaming(LimePluginContext* context, const LimeRuntimeParamet
             std::vector<int> channels;
             for (int i = 0; i < dev->configInputs.maxChannelsToUse; ++i)
                 channels.push_back(i);
-            aggregates.push_back({ dev->device, channels, dev->chipIndex });
+
+            StreamConfig streamCfg;
+            // stream.channels[TRXDir::Rx].resize(params->rf_ports[p].rx_channel_count);
+            // stream.channels[TRXDir::Tx].resize(params->rf_ports[p].tx_channel_count);
+            streamCfg.linkFormat = port.configInputs.linkFormat;
+            streamCfg.format = context->samplesFormat;
+            streamCfg.extraConfig.negateQ = port.configInputs.double_freq_conversion_to_lower_side;
+            streamCfg.extraConfig.waitPPS = port.configInputs.syncPPS;
+            streamCfg.extraConfig.rx.samplesInPacket = 0;
+            streamCfg.extraConfig.rx.packetsInBatch = 0;
+            streamCfg.extraConfig.tx.packetsInBatch = 0;
+            streamCfg.extraConfig.tx.samplesInPacket = 0;
+
+            // Initialize streams and map channels
+            for (int ch = 0; ch < dev->configInputs.maxChannelsToUse; ++ch)
+            {
+                if (rx_required > 0)
+                {
+                    streamCfg.channels[TRXDir::Rx].push_back(ch);
+                    --rx_required;
+                }
+                if (tx_required > 0)
+                {
+                    streamCfg.channels[TRXDir::Tx].push_back(ch);
+                    --tx_required;
+                }
+            }
+
+            streamCfg.statusCallback = OnStreamStatusChange;
+            streamCfg.userData = static_cast<void*>(&portStreamStates[p]);
+            streamCfg.hintSampleRate = params->rf_ports[p].sample_rate;
+
+            std::unique_ptr<RFStream> rfstream = dev->device->StreamCreate(streamCfg, dev->chipIndex);
+            if (!rfstream)
+                return OpStatus::Error;
+
+            aggregates.push_back(std::move(rfstream));
         }
         if (aggregates.empty())
             continue;
 
+        port.stream = std::make_unique<StreamComposite>(aggregates);
+        if (!port.stream)
+            return OpStatus::Error;
+        StreamConfig streamCfg = port.stream->GetConfig();
         Log(LogLevel::Debug,
             "Port[%li] Stream samples format: %s , link: %s %s",
             p,
-            stream.format == DataFormat::F32 ? "F32" : "I16",
-            stream.linkFormat == DataFormat::I12 ? "I12" : "I16",
-            (stream.extraConfig.negateQ ? ", Negating Q samples" : ""));
+            streamCfg.format == DataFormat::F32 ? "F32" : "I16",
+            streamCfg.linkFormat == DataFormat::I12 ? "I12" : "I16",
+            (streamCfg.extraConfig.negateQ ? ", Negating Q samples" : ""));
+        // if (port.stream->Setup(stream) != OpStatus::Success)
+        // {
+        //     Log(LogLevel::Error, "Port%li stream setup failed.", p);
+        //     return OpStatus::Error;
+        // }
 
-        port.composite = new StreamComposite(aggregates);
-        if (port.composite->StreamSetup(stream) != OpStatus::Success)
+        if (port.calibrationNode)
         {
-            Log(LogLevel::Error, "Port%li stream setup failed.", p);
-            return OpStatus::Error;
+            StreamConfig streamCfg;
+            // stream.channels[TRXDir::Rx].resize(params->rf_ports[p].rx_channel_count);
+            // stream.channels[TRXDir::Tx].resize(params->rf_ports[p].tx_channel_count);
+            streamCfg.linkFormat = port.configInputs.linkFormat;
+            streamCfg.format = context->samplesFormat;
+            streamCfg.extraConfig.negateQ = port.configInputs.double_freq_conversion_to_lower_side;
+            streamCfg.extraConfig.waitPPS = port.configInputs.syncPPS;
+            streamCfg.extraConfig.rx.samplesInPacket = 0;
+            streamCfg.extraConfig.rx.packetsInBatch = 0;
+            streamCfg.extraConfig.tx.packetsInBatch = 0;
+            streamCfg.extraConfig.tx.samplesInPacket = 0;
+
+            streamCfg.channels[TRXDir::Rx].push_back(0);
+            streamCfg.channels[TRXDir::Tx].push_back(0);
+
+            // streamCfg.statusCallback = OnStreamStatusChange;
+            // streamCfg.userData = static_cast<void*>(&portStreamStates[p]);
+            streamCfg.hintSampleRate = params->rf_ports[p].sample_rate;
+
+            std::unique_ptr<RFStream> rfstream =
+                port.calibrationNode->device->StreamCreate(streamCfg, port.calibrationNode->chipIndex);
+            if (!rfstream)
+                return OpStatus::Error;
+            port.calibrationStream = std::move(rfstream);
         }
     }
     return OpStatus::Success;
+}
+
+static void SetCalibrationDevicesParams(LimePluginContext* context, const LimeRuntimeParameters* params)
+{
+    for (const auto& channel : context->rxChannels)
+    {
+        const int portIndex = channel.parent->portIndex;
+        if (!context->ports[portIndex].calibrationNode)
+            continue;
+
+        const lime::SDRConfig& srcConfig = channel.parent->config;
+
+        lime::SDRConfig& calibrationConfig = context->ports[portIndex].calibrationNode->config;
+        ChannelConfig::Direction& rxCfg = calibrationConfig.channel[0].rx;
+        rxCfg.enabled = true;
+        rxCfg.lpf = srcConfig.channel[0].rx.lpf;
+        rxCfg.centerFrequency = srcConfig.channel[0].tx.centerFrequency;
+    }
+    for (const auto& channel : context->txChannels)
+    {
+        const int portIndex = channel.parent->portIndex;
+        if (!context->ports[portIndex].calibrationNode)
+            continue;
+
+        const lime::SDRConfig& srcConfig = channel.parent->config;
+
+        lime::SDRConfig& calibrationConfig = context->ports[portIndex].calibrationNode->config;
+        ChannelConfig::Direction& txCfg = calibrationConfig.channel[0].tx;
+        txCfg.enabled = true;
+        txCfg.lpf = srcConfig.channel[0].tx.lpf;
+
+        txCfg.centerFrequency = srcConfig.channel[0].rx.centerFrequency;
+    }
 }
 
 int LimePlugin_Setup(LimePluginContext* context, const LimeRuntimeParameters* params)
@@ -913,6 +1009,8 @@ int LimePlugin_Setup(LimePluginContext* context, const LimeRuntimeParameters* pa
 
     TransferRuntimeParametersToConfig(*params, context->rxChannels, TRXDir::Rx);
     TransferRuntimeParametersToConfig(*params, context->txChannels, TRXDir::Tx);
+
+    SetCalibrationDevicesParams(context, params);
 
     try
     {
@@ -967,9 +1065,13 @@ int LimePlugin_Start(LimePluginContext* context)
 {
     for (auto& port : context->ports)
     {
-        if (!port.composite)
-            continue;
-        port.composite->StreamStart();
+        if (port.stream)
+            port.stream->StageStart();
+    }
+    for (auto& port : context->ports)
+    {
+        if (port.stream)
+            port.stream->Start();
     }
     return 0;
 }
@@ -980,7 +1082,7 @@ static int LimePlugin_Write(LimePluginContext* context, const T* const* samples,
     if (!samples) // Nothing to transmit
         return 0;
 
-    int samplesConsumed = context->ports[port].composite->StreamTx(samples, count, &meta);
+    int samplesConsumed = context->ports[port].stream->StreamTx(samples, count, &meta);
     if (logVerbosity == LogLevel::Debug && samplesConsumed != count)
     {
         if (samplesConsumed < 0) // hardware timestamp is already ahead of meta.timestamp by (-samplesConsumed)
@@ -1010,7 +1112,7 @@ template<class T> static int LimePlugin_Read(LimePluginContext* context, T* cons
 {
     meta.waitForTimestamp = false;
     meta.flushPartialPacket = false;
-    int samplesGot = context->ports[port].composite->StreamRx(samples, count, &meta);
+    int samplesGot = context->ports[port].stream->StreamRx(samples, count, &meta);
 
     if (samplesGot == 0)
     {

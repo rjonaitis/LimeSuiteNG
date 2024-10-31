@@ -3,8 +3,8 @@
 
 #include "limesuiteng/config.h"
 #include "limesuiteng/SDRDevice.h"
-#include "limesuiteng/StreamComposite.h"
 #include "limesuiteng/Logger.h"
+#include "limesuiteng/RFStream.h"
 #include "limesuiteng/types.h"
 
 #include <map>
@@ -91,9 +91,12 @@ struct LIME_API ChannelData {
 struct LIME_API PortData {
     // settings from file
     std::string deviceNames; ///< The names of the devices to connect to.
+    std::string calibrationDeviceName; ///< The name of device dedicated for monitoring/calibrating this port
 
     std::vector<DevNode*> nodes; ///< The devices connected to.
-    lime::StreamComposite* composite; ///< The composite sample stream streamer.
+    std::unique_ptr<lime::RFStream> stream; ///< The composite of samples streams.
+    DevNode* calibrationNode; ///< device assigned to monitor/calibrate the port
+    std::unique_ptr<lime::RFStream> calibrationStream; ///< monitoring/calibration samples stream.
     ConfigSettings configInputs; ///< The configuration settings for the devices.
 };
 

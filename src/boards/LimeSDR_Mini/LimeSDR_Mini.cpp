@@ -27,11 +27,11 @@
 
 #include "FPGA_Mini.h"
 
-using namespace lime;
 using namespace lime::LMS64CProtocol;
 using namespace lime::LMS7002MCSR_Data;
 using namespace std::literals::string_literals;
 
+namespace lime {
 namespace limesdrmini {
 
 static const uint8_t SPI_LMS7002M = 0;
@@ -155,6 +155,7 @@ LimeSDR_Mini::LimeSDR_Mini(std::shared_ptr<IComms> spiLMS,
     , mlms7002mPort(spiLMS)
     , mfpgaPort(spiFPGA)
 {
+    mStreamers.resize(1);
     SDRDescriptor& descriptor = mDeviceDescriptor;
 
     LMS64CProtocol::FirmwareInfo fw{};
@@ -191,16 +192,6 @@ LimeSDR_Mini::LimeSDR_Mini(std::shared_ptr<IComms> spiLMS,
         chip->SetOnCGENChangeCallback(UpdateFPGAInterface, this);
         chip->SetReferenceClk_SX(TRXDir::Rx, refClk);
         mLMSChips.push_back(std::move(chip));
-    }
-    {
-        mStreamers.reserve(mLMSChips.size());
-        constexpr uint8_t rxBulkEndpoint = 0x83;
-        constexpr uint8_t txBulkEndpoint = 0x03;
-        auto rxdma = std::make_shared<USBDMAEmulation>(mStreamPort, rxBulkEndpoint, DataTransferDirection::DeviceToHost);
-        auto txdma = std::make_shared<USBDMAEmulation>(mStreamPort, txBulkEndpoint, DataTransferDirection::HostToDevice);
-
-        mStreamers.push_back(std::make_unique<TRXLooper>(
-            std::static_pointer_cast<IDMA>(rxdma), std::static_pointer_cast<IDMA>(txdma), mFPGA.get(), mLMSChips.at(0).get(), 0));
     }
 
     descriptor.spiSlaveIds = { { "LMS7002M"s, limesdrmini::SPI_LMS7002M }, { "FPGA"s, limesdrmini::SPI_FPGA } };
@@ -333,8 +324,8 @@ OpStatus LimeSDR_Mini::Init()
     // Otherwise if TxLPF is not configured, or CG_IAMP_TBB is not set explicitly to match it.
     // it can result in inconsistent Tx gain results.
     lms->SetActiveChannel(LMS7002M::Channel::ChA);
-    lms->SetTxLPF(20);
-    lms->SetRxLPF(20);
+    lms->SetTxLPF(20e6);
+    lms->SetRxLPF(20e6);
     // SetActiveChannel(Channel::ChB);
     // SetTxLPF(0);
     // SetRxLPF(0);
@@ -608,3 +599,25 @@ OpStatus LimeSDR_Mini::SetAntenna(uint8_t moduleIndex, TRXDir trx, uint8_t chann
     else
         return status;
 }
+
+std::unique_ptr<lime::RFStream> LimeSDR_Mini::StreamCreate(const StreamConfig& config, uint8_t moduleIndex)
+{
+    constexpr uint8_t rxBulkEndpoint = 0x83;
+    constexpr uint8_t txBulkEndpoint = 0x03;
+    auto rxdma = std::make_shared<USBDMAEmulation>(mStreamPort, rxBulkEndpoint, DataTransferDirection::DeviceToHost);
+    auto txdma = std::make_shared<USBDMAEmulation>(mStreamPort, txBulkEndpoint, DataTransferDirection::HostToDevice);
+
+    std::unique_ptr<TRXLooper> streamer = std::make_unique<TRXLooper>(
+        std::static_pointer_cast<IDMA>(rxdma), std::static_pointer_cast<IDMA>(txdma), mFPGA.get(), mLMSChips.at(0).get(), 0);
+    if (!streamer)
+        return streamer;
+
+    if (mCallback_logMessage)
+        streamer->SetMessageLogCallback(mCallback_logMessage);
+    OpStatus status = streamer->Setup(config);
+    if (status != OpStatus::Success)
+        return std::unique_ptr<RFStream>(nullptr);
+    return streamer;
+}
+
+} // namespace lime

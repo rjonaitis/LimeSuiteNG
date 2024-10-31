@@ -162,7 +162,7 @@ class LIME_API LMS7002M_SDRDevice : public SDRDevice
     LogCallbackType mCallback_logMessage;
     std::vector<std::unique_ptr<LMS7002M>> mLMSChips;
     std::unique_ptr<FPGA> mFPGA;
-    std::vector<std::unique_ptr<TRXLooper>> mStreamers;
+    std::vector<std::unique_ptr<RFStream>> mStreamers;
 
     SDRDescriptor mDeviceDescriptor;
 

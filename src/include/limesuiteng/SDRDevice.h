@@ -25,6 +25,7 @@ struct DataStorage;
 struct Region;
 struct CustomParameterIO;
 class OEMTestReporter;
+class RFStream;
 
 enum class eMemoryDevice : uint8_t;
 enum class eGainTypes : uint8_t;
@@ -432,27 +433,27 @@ class LIME_API SDRDevice
     /// @param config The configuration to use for setting the streams up.
     /// @param moduleIndex The index of the device to set up.
     /// @return The status code of the operation.
-    virtual OpStatus StreamSetup(const StreamConfig& config, uint8_t moduleIndex) = 0;
+    [[deprecated]] virtual OpStatus StreamSetup(const StreamConfig& config, uint8_t moduleIndex) = 0;
 
     /// @brief Starts all the set up streams on the device.
     /// @param moduleIndex The index of the device to start the streams on.
-    virtual void StreamStart(uint8_t moduleIndex) = 0;
+    [[deprecated]] virtual void StreamStart(uint8_t moduleIndex) = 0;
 
     /// @brief Starts all the set up streams on the devices.
     /// @param moduleIndexes The indices of the devices to start the streams on.
-    virtual void StreamStart(const std::vector<uint8_t>& moduleIndexes);
+    [[deprecated]] virtual void StreamStart(const std::vector<uint8_t>& moduleIndexes);
 
     /// @brief Stops all the set up streams on the device.
     /// @param moduleIndex The index of the device to stop the streams on.
-    virtual void StreamStop(uint8_t moduleIndex) = 0;
+    [[deprecated]] virtual void StreamStop(uint8_t moduleIndex) = 0;
 
     /// @brief Stops all the set up streams on the devices.
     /// @param moduleIndexes The indices of the devices to stop the streams on.
-    virtual void StreamStop(const std::vector<uint8_t>& moduleIndexes);
+    [[deprecated]] virtual void StreamStop(const std::vector<uint8_t>& moduleIndexes);
 
     /// @brief Deallocate stream resources.
     /// @param moduleIndex The index of the device to stop the streams on.
-    virtual void StreamDestroy(uint8_t moduleIndex) = 0;
+    [[deprecated]] virtual void StreamDestroy(uint8_t moduleIndex) = 0;
 
     /// @brief Receives samples from all the active streams in the device.
     /// @param moduleIndex The index of the device to receive the samples from.
@@ -507,6 +508,12 @@ class LIME_API SDRDevice
     /// @param rx The pointer (or nullptr if not needed) to store the receive statistics to.
     /// @param tx The pointer (or nullptr if not needed) to store the transmit statistics to.
     virtual void StreamStatus(uint8_t moduleIndex, StreamStats* rx, StreamStats* tx) = 0;
+
+    /// @brief Creates a RF data streaming interface for selected RF module.
+    /// @param config The configuration to use for setting the streams up.
+    /// @param moduleIndex The index of the device to set up.
+    /// @return RF data streaming interface object.
+    virtual std::unique_ptr<lime::RFStream> StreamCreate(const StreamConfig& config, uint8_t moduleIndex) = 0;
 
     /// @brief Uploads waveform to on board memory for later use.
     /// @param config The configuration of the stream.

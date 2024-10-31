@@ -72,7 +72,9 @@ target_sources(
     PRIVATE LimeSuite_wrapper/streaming.cpp
             LimeSuite_wrapper/device.cpp
             streaming/streaming.cpp
+            streaming/RFStream_tests.cpp
             boards/LMS7002M_SDRDevice_Fixture.cpp)
+SET_SOURCE_FILES_PROPERTIES( streaming/streaming.cpp PROPERTIES COMPILE_FLAGS -Wno-deprecated-declarations )
 target_compile_definitions(gtest-runner-hardware PRIVATE GTEST_LINKED_AS_SHARED_LIBRARY=0)
 target_link_libraries(
     gtest-runner-hardware

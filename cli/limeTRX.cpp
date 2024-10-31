@@ -3,7 +3,7 @@
 #include "limesuiteng/SDRDescriptor.h"
 
 #include "limesuiteng/StreamConfig.h"
-#include "limesuiteng/StreamComposite.h"
+#include "streaming/StreamComposite.h"
 #include <iostream>
 #include <chrono>
 #include <cmath>
@@ -273,10 +273,8 @@ int main(int argc, char** argv)
 
     std::vector<int> chipIndexes = ParseIntArray(chipFlag);
 
-    StreamComposite* composite = nullptr;
+    std::unique_ptr<RFStream> stream;
     logVerbosity = strToLogLevel(args::get(logFlag));
-    int chipIndex = 0;
-    bool useComposite = false;
 
     DataFormat linkFormat = DataFormat::I12;
     if (linkFormatFlag)
@@ -311,66 +309,57 @@ int main(int argc, char** argv)
     if (chipIndexes.empty() && device->GetDescriptor().rfSOC.size() == 1)
         chipIndexes.push_back(0);
 
-    try
+    int rx_require = rx ? channelCount : 0;
+    int tx_require = tx ? channelCount : 0;
+
+    // Samples data streaming configuration
+    StreamConfig streamCfg;
+    streamCfg.format = DataFormat::I16;
+    streamCfg.linkFormat = linkFormat;
+
+    if (syncPPS || rxSamplesInPacket || rxPacketsInBatch || txSamplesInPacket || txPacketsInBatch)
     {
-        // Samples data streaming configuration
-        StreamConfig stream;
-        for (int i = 0; rx && i < channelCount; ++i)
-        {
-            stream.channels.at(TRXDir::Rx).push_back(i);
-        }
-
-        for (int i = 0; tx && i < channelCount; ++i)
-        {
-            stream.channels.at(TRXDir::Tx).push_back(i);
-        }
-
-        stream.format = DataFormat::I16;
-        stream.linkFormat = linkFormat;
-
-        if (syncPPS || rxSamplesInPacket || rxPacketsInBatch || txSamplesInPacket || txPacketsInBatch)
-        {
-            stream.extraConfig.waitPPS = syncPPS;
-            stream.extraConfig.rx.samplesInPacket = rxSamplesInPacket;
-            stream.extraConfig.tx.samplesInPacket = txSamplesInPacket;
-            stream.extraConfig.rx.packetsInBatch = rxPacketsInBatch;
-            stream.extraConfig.tx.packetsInBatch = txPacketsInBatch;
-        }
-
-        useComposite = chipIndexes.size() > 1;
-        if (useComposite)
-        {
-            std::vector<StreamAggregate> aggregates(chipIndexes.size());
-            for (size_t i = 0; i < chipIndexes.size(); ++i)
-            {
-                aggregates[i].device = device;
-                aggregates[i].streamIndex = chipIndexes[i];
-                int deviceChannelCount = device->GetDescriptor().rfSOC[chipIndexes[i]].channelCount;
-                for (int j = 0; j < deviceChannelCount; ++j)
-                    aggregates[i].channels.push_back(j);
-            }
-            composite = new StreamComposite(std::move(aggregates));
-            composite->StreamSetup(stream);
-        }
-        else
-        {
-            chipIndex = chipIndexes.empty() ? 0 : chipIndexes[0];
-            OpStatus status = device->StreamSetup(stream, chipIndex);
-            if (status != OpStatus::Success)
-            {
-                cerr << "Failed to setup data stream.\n";
-                return EXIT_FAILURE;
-            }
-        }
-    } catch (std::runtime_error& e)
-    {
-        std::cout << "Failed to configure settings: "sv << e.what() << std::endl;
-        return -1;
-    } catch (std::logic_error& e)
-    {
-        std::cout << "Failed to configure settings: "sv << e.what() << std::endl;
-        return -1;
+        streamCfg.extraConfig.waitPPS = syncPPS;
+        streamCfg.extraConfig.rx.samplesInPacket = rxSamplesInPacket;
+        streamCfg.extraConfig.tx.samplesInPacket = txSamplesInPacket;
+        streamCfg.extraConfig.rx.packetsInBatch = rxPacketsInBatch;
+        streamCfg.extraConfig.tx.packetsInBatch = txPacketsInBatch;
     }
+
+    std::vector<std::unique_ptr<RFStream>> aggregates;
+    for (size_t index : chipIndexes)
+    {
+        if (rx_require == 0 && tx_require == 0)
+            break;
+
+        streamCfg.channels.at(TRXDir::Rx).clear();
+        streamCfg.channels.at(TRXDir::Tx).clear();
+
+        const int deviceChannelCount = device->GetDescriptor().rfSOC[index].channelCount;
+        for (int j = 0; j < deviceChannelCount; ++j)
+        {
+            if (rx_require > 0)
+            {
+                streamCfg.channels.at(TRXDir::Rx).push_back(j);
+                --rx_require;
+            }
+            if (tx_require > 0)
+            {
+                streamCfg.channels.at(TRXDir::Tx).push_back(j);
+                --tx_require;
+            }
+        }
+
+        aggregates.push_back(device->StreamCreate(streamCfg, index));
+    }
+    if (rx_require > 0 || rx_require > 0)
+    {
+        cerr << "Requested too many channels" << endl;
+        DeviceRegistry::freeDevice(device);
+        return EXIT_FAILURE;
+    }
+
+    stream = std::make_unique<StreamComposite>(aggregates);
 
     signal(SIGINT, intHandler);
 
@@ -416,7 +405,7 @@ int main(int argc, char** argv)
 
     float peakAmplitude = 0;
     float peakFrequency = 0;
-    float sampleRate = device->GetSampleRate(chipIndex, TRXDir::Rx, 0);
+    float sampleRate = device->GetSampleRate(chipIndexes.front(), TRXDir::Rx, 0);
     if (sampleRate <= 0)
         sampleRate = 1; // sample rate read-back not available, assign default value
     float frequencyLO = 0;
@@ -439,10 +428,8 @@ int main(int argc, char** argv)
     if (showConstellation)
         constellationPlot.Start();
 #endif
-    if (useComposite)
-        composite->StreamStart();
-    else
-        device->StreamStart(chipIndex);
+    stream->StageStart();
+    stream->Start();
 
     auto startTime = std::chrono::high_resolution_clock::now();
     auto t1 = startTime - std::chrono::seconds(2); // rewind t1 to do update on first loop
@@ -468,8 +455,7 @@ int main(int argc, char** argv)
                 const complex16_t* txSamples[16];
                 for (int i = 0; i < 16; ++i)
                     txSamples[i] = &txData[txSent];
-                uint32_t samplesSent = useComposite ? composite->StreamTx(txSamples, toSend, &txMeta)
-                                                    : device->StreamTx(chipIndex, txSamples, toSend, &txMeta);
+                uint32_t samplesSent = stream->StreamTx(txSamples, toSend, &txMeta);
                 if (samplesSent > 0)
                 {
                     txSent += samplesSent;
@@ -481,8 +467,7 @@ int main(int argc, char** argv)
         complex16_t* rxSamples[16];
         for (int i = 0; i < 16; ++i)
             rxSamples[i] = rxData[i].data();
-        uint32_t samplesRead = useComposite ? composite->StreamRx(rxSamples, fftSize, &rxMeta)
-                                            : device->StreamRx(chipIndex, rxSamples, fftSize, &rxMeta);
+        uint32_t samplesRead = stream->StreamRx(rxSamples, fftSize, &rxMeta);
         if (samplesRead == 0)
             continue;
 
@@ -491,10 +476,7 @@ int main(int argc, char** argv)
             txMeta.timestamp = rxMeta.timestamp + samplesRead + repeaterDelay;
             txMeta.waitForTimestamp = true;
             txMeta.flushPartialPacket = true;
-            if (useComposite)
-                composite->StreamTx(rxSamples, samplesRead, &txMeta);
-            else
-                device->StreamTx(chipIndex, rxSamples, samplesRead, &txMeta);
+            stream->StreamTx(rxSamples, samplesRead, &txMeta);
         }
 
         // process samples
@@ -560,16 +542,8 @@ int main(int argc, char** argv)
     // some sleep for GNU plot data to flush, otherwise sometimes cout spams  gnuplot "invalid command"
     this_thread::sleep_for(std::chrono::milliseconds(500));
 #endif
-    if (useComposite)
-        composite->StreamStop();
-    else
-    {
-        device->StreamStop(chipIndex);
-        device->StreamDestroy(chipIndex);
-    }
-
-    if (composite)
-        delete composite;
+    stream->Stop();
+    stream.reset();
     DeviceRegistry::freeDevice(device);
 
     rxFile.close();
