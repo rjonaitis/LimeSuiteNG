@@ -866,73 +866,62 @@ OpStatus ConfigureStreaming(LimePluginContext* context, const LimeRuntimeParamet
         if (port.nodes.empty())
             continue;
 
-        std::vector<std::unique_ptr<RFStream>> aggregates;
+        std::unique_ptr<StreamComposite> composite = std::make_unique<StreamComposite>();
 
-        int rx_required = params->rf_ports[p].rx_channel_count;
-        int tx_required = params->rf_ports[p].tx_channel_count;
+        // std::vector<std::unique_ptr<RFStream>> aggregates;
+        StreamConfig streamCfg;
+        streamCfg.linkFormat = port.configInputs.linkFormat;
+        streamCfg.format = context->samplesFormat;
+        streamCfg.extraConfig.negateQ = port.configInputs.double_freq_conversion_to_lower_side;
+        streamCfg.extraConfig.waitPPS = port.configInputs.syncPPS;
+        streamCfg.extraConfig.rx.samplesInPacket = 0;
+        streamCfg.extraConfig.rx.packetsInBatch = 0;
+        streamCfg.extraConfig.tx.packetsInBatch = 0;
+        streamCfg.extraConfig.tx.samplesInPacket = 0;
+        streamCfg.statusCallback = OnStreamStatusChange;
+        streamCfg.userData = static_cast<void*>(&portStreamStates[p]);
+        streamCfg.hintSampleRate = params->rf_ports[p].sample_rate;
+
         for (auto& dev : port.nodes)
         {
             if (!dev->assignedToPort)
                 continue;
-            std::vector<int> channels;
+            std::vector<uint8_t> channels;
             for (int i = 0; i < dev->configInputs.maxChannelsToUse; ++i)
                 channels.push_back(i);
 
-            StreamConfig streamCfg;
-            // stream.channels[TRXDir::Rx].resize(params->rf_ports[p].rx_channel_count);
-            // stream.channels[TRXDir::Tx].resize(params->rf_ports[p].tx_channel_count);
-            streamCfg.linkFormat = port.configInputs.linkFormat;
-            streamCfg.format = context->samplesFormat;
-            streamCfg.extraConfig.negateQ = port.configInputs.double_freq_conversion_to_lower_side;
-            streamCfg.extraConfig.waitPPS = port.configInputs.syncPPS;
-            streamCfg.extraConfig.rx.samplesInPacket = 0;
-            streamCfg.extraConfig.rx.packetsInBatch = 0;
-            streamCfg.extraConfig.tx.packetsInBatch = 0;
-            streamCfg.extraConfig.tx.samplesInPacket = 0;
-
-            // Initialize streams and map channels
-            for (int ch = 0; ch < dev->configInputs.maxChannelsToUse; ++ch)
-            {
-                if (rx_required > 0)
-                {
-                    streamCfg.channels[TRXDir::Rx].push_back(ch);
-                    --rx_required;
-                }
-                if (tx_required > 0)
-                {
-                    streamCfg.channels[TRXDir::Tx].push_back(ch);
-                    --tx_required;
-                }
-            }
-
-            streamCfg.statusCallback = OnStreamStatusChange;
-            streamCfg.userData = static_cast<void*>(&portStreamStates[p]);
-            streamCfg.hintSampleRate = params->rf_ports[p].sample_rate;
+            streamCfg.channels[TRXDir::Rx] = channels;
+            streamCfg.channels[TRXDir::Tx] = channels;
 
             std::unique_ptr<RFStream> rfstream = dev->device->StreamCreate(streamCfg, dev->chipIndex);
             if (!rfstream)
                 return OpStatus::Error;
 
-            aggregates.push_back(std::move(rfstream));
+            composite->Add(std::move(rfstream));
         }
-        if (aggregates.empty())
-            continue;
 
-        port.stream = std::make_unique<StreamComposite>(aggregates);
-        if (!port.stream)
-            return OpStatus::Error;
-        StreamConfig streamCfg = port.stream->GetConfig();
+        streamCfg.channels[TRXDir::Rx].clear();
+        const int rx_required = params->rf_ports[p].rx_channel_count;
+        for (int ch = 0; ch < rx_required; ++ch)
+            streamCfg.channels[TRXDir::Rx].push_back(ch);
+
+        streamCfg.channels[TRXDir::Tx].clear();
+        const int tx_required = params->rf_ports[p].tx_channel_count;
+        for (int ch = 0; ch < tx_required; ++ch)
+            streamCfg.channels[TRXDir::Tx].push_back(ch);
+
         Log(LogLevel::Debug,
             "Port[%li] Stream samples format: %s , link: %s %s",
             p,
             streamCfg.format == DataFormat::F32 ? "F32" : "I16",
             streamCfg.linkFormat == DataFormat::I12 ? "I12" : "I16",
             (streamCfg.extraConfig.negateQ ? ", Negating Q samples" : ""));
-        // if (port.stream->Setup(stream) != OpStatus::Success)
-        // {
-        //     Log(LogLevel::Error, "Port%li stream setup failed.", p);
-        //     return OpStatus::Error;
-        // }
+        if (composite->Setup(streamCfg) != OpStatus::Success)
+        {
+            Log(LogLevel::Error, "Port%li stream setup failed.", p);
+            return OpStatus::Error;
+        }
+        port.stream = std::move(composite);
 
         if (port.calibrationNode)
         {

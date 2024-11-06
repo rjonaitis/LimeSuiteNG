@@ -26,7 +26,7 @@ class TRXLooper : public RFStream
 {
   public:
     TRXLooper(std::shared_ptr<IDMA> rx, std::shared_ptr<IDMA> tx, FPGA* f, LMS7002M* chip, uint8_t moduleIndex);
-    ~TRXLooper();
+    virtual ~TRXLooper();
 
     uint64_t GetHardwareTimestamp() const override;
     OpStatus SetHardwareTimestamp(const uint64_t now);

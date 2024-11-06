@@ -166,7 +166,9 @@ USBDMAEmulation::State USBDMAEmulation::GetCounters()
 
 OpStatus USBDMAEmulation::SubmitRequest(uint64_t index, uint32_t bytesCount, DataTransferDirection dir, bool irq)
 {
-    assert(isEnabled);
+    if (!isEnabled)
+        return OpStatus::Error;
+
     assert(bytesCount > 0);
     assert(index < mappings.size());
 

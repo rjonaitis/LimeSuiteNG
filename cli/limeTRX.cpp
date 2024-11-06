@@ -273,7 +273,6 @@ int main(int argc, char** argv)
 
     std::vector<int> chipIndexes = ParseIntArray(chipFlag);
 
-    std::unique_ptr<RFStream> stream;
     logVerbosity = strToLogLevel(args::get(logFlag));
 
     DataFormat linkFormat = DataFormat::I12;
@@ -326,7 +325,7 @@ int main(int argc, char** argv)
         streamCfg.extraConfig.tx.packetsInBatch = txPacketsInBatch;
     }
 
-    std::vector<std::unique_ptr<RFStream>> aggregates;
+    std::unique_ptr<StreamComposite> stream = std::make_unique<StreamComposite>();
     for (size_t index : chipIndexes)
     {
         if (rx_require == 0 && tx_require == 0)
@@ -338,6 +337,10 @@ int main(int argc, char** argv)
         const int deviceChannelCount = device->GetDescriptor().rfSOC[index].channelCount;
         for (int j = 0; j < deviceChannelCount; ++j)
         {
+            if (rx)
+                streamCfg.channels.at(TRXDir::Rx).push_back(j);
+            if (tx)
+                streamCfg.channels.at(TRXDir::Tx).push_back(j);
             if (rx_require > 0)
             {
                 streamCfg.channels.at(TRXDir::Rx).push_back(j);
@@ -350,16 +353,25 @@ int main(int argc, char** argv)
             }
         }
 
-        aggregates.push_back(device->StreamCreate(streamCfg, index));
+        stream->Add(device->StreamCreate(streamCfg, index));
     }
-    if (rx_require > 0 || rx_require > 0)
+
+    streamCfg.channels.at(TRXDir::Rx).clear();
+    for (int i = 0; rx && i < rx_require; ++i)
+        streamCfg.channels.at(TRXDir::Rx).push_back(i);
+
+    streamCfg.channels.at(TRXDir::Tx).clear();
+    for (int i = 0; tx && i < tx_require; ++i)
+        streamCfg.channels.at(TRXDir::Tx).push_back(i);
+
+    OpStatus status = stream->Setup(streamCfg);
+    if (status != OpStatus::Success)
     {
-        cerr << "Requested too many channels" << endl;
+        cerr << "Failed to setup streams" << endl;
+        stream.reset();
         DeviceRegistry::freeDevice(device);
         return EXIT_FAILURE;
     }
-
-    stream = std::make_unique<StreamComposite>(aggregates);
 
     signal(SIGINT, intHandler);
 

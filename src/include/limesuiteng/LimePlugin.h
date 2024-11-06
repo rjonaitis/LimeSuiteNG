@@ -94,9 +94,9 @@ struct LIME_API PortData {
     std::string calibrationDeviceName; ///< The name of device dedicated for monitoring/calibrating this port
 
     std::vector<DevNode*> nodes; ///< The devices connected to.
-    std::unique_ptr<lime::RFStream> stream; ///< The composite of samples streams.
+    std::shared_ptr<lime::RFStream> stream; ///< The composite of samples streams.
     DevNode* calibrationNode; ///< device assigned to monitor/calibrate the port
-    std::unique_ptr<lime::RFStream> calibrationStream; ///< monitoring/calibration samples stream.
+    std::shared_ptr<lime::RFStream> calibrationStream; ///< monitoring/calibration samples stream.
     ConfigSettings configInputs; ///< The configuration settings for the devices.
 };
 

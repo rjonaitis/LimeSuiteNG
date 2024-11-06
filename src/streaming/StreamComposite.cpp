@@ -4,7 +4,6 @@
 #include <cassert>
 
 #include "limesuiteng/types.h"
-#include "limesuiteng/StreamConfig.h"
 #include "limesuiteng/SDRDescriptor.h"
 #include "limesuiteng/RFSOCDescriptor.h"
 #include "limesuiteng/Logger.h"
@@ -13,18 +12,27 @@ using namespace std;
 
 namespace lime {
 
-StreamComposite::StreamComposite(std::vector<std::unique_ptr<RFStream>>& aggregate)
-    : mAggregate(std::move(aggregate))
-    , warnAboutMisalignment(true)
+StreamComposite::StreamComposite()
+    : warnAboutMisalignment(true)
 {
-    assert(mAggregate.size() > 0);
+}
 
-    StreamConfig streamCfg = mAggregate.front()->GetConfig();
-    streamCfg.channels.at(TRXDir::Rx).clear();
-    streamCfg.channels.at(TRXDir::Tx).clear();
+StreamComposite::~StreamComposite()
+{
+    for (auto& substream : mAggregate)
+        delete substream;
+}
 
-    int rxTotalCount = 0;
-    int txTotalCount = 0;
+OpStatus StreamComposite::Add(std::unique_ptr<RFStream> stream)
+{
+    mAggregate.push_back(stream.release());
+    return OpStatus::Success;
+}
+
+OpStatus StreamComposite::Setup(const StreamConfig& config)
+{
+    size_t rxTotalCount = 0;
+    size_t txTotalCount = 0;
     for (auto& a : mAggregate)
     {
         assert(a);
@@ -32,21 +40,15 @@ StreamComposite::StreamComposite(std::vector<std::unique_ptr<RFStream>>& aggrega
         rxTotalCount += subConfig.channels.at(TRXDir::Rx).size();
         txTotalCount += subConfig.channels.at(TRXDir::Tx).size();
     }
-    streamCfg.channels.at(TRXDir::Rx).reserve(rxTotalCount);
-    for (int i = 0; i < rxTotalCount; ++i)
-        streamCfg.channels.at(TRXDir::Rx).push_back(i);
 
-    streamCfg.channels.at(TRXDir::Tx).reserve(txTotalCount);
-    for (int i = 0; i < txTotalCount; ++i)
-        streamCfg.channels.at(TRXDir::Tx).push_back(i);
+    if (config.channels.at(TRXDir::Rx).size() > rxTotalCount)
+        return ReportError(OpStatus::InvalidValue, "StreamComposite Setup requests too many Rx channels");
 
-    mConfig = streamCfg;
-}
+    if (config.channels.at(TRXDir::Tx).size() > txTotalCount)
+        return ReportError(OpStatus::InvalidValue, "StreamComposite Setup requests too many Tx channels");
 
-OpStatus StreamComposite::Setup(const StreamConfig& config)
-{
-    // TODO: reconfigure substreams to satisfy the requested config
-    return OpStatus::NotImplemented;
+    mConfig = config;
+    return OpStatus::Success;
 }
 
 const StreamConfig& StreamComposite::GetConfig() const
@@ -121,7 +123,7 @@ uint32_t StreamComposite::StreamRx_T(T* const* samples, uint32_t count, StreamMe
         return count;
 
     bool misalignedTimestamps{ false };
-    for (int i = 1; i < channelsCount; ++channelsCount)
+    for (uint32_t i = 1; i < mConfig.channels[TRXDir::Rx].size(); ++i)
     {
         if (subDeviceMeta[i].timestamp != subDeviceMeta[0].timestamp)
         {

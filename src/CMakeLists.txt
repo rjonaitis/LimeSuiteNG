@@ -34,7 +34,9 @@ set(LIME_SUITE_SOURCES
     include/limesuiteng/SDRDevice.cpp
     utilities/toString.cpp)
 
-SET_SOURCE_FILES_PROPERTIES( include/limesuiteng/SDRDevice.cpp PROPERTIES COMPILE_FLAGS -Wno-deprecated-declarations )
+if (NOT MSVC)
+    SET_SOURCE_FILES_PROPERTIES( include/limesuiteng/SDRDevice.cpp PROPERTIES COMPILE_FLAGS -Wno-deprecated-declarations )
+endif()
 
 set_source_files_properties(mcu_program/common_src/lms7002m_controls.c PROPERTIES LANGUAGE CXX)
 

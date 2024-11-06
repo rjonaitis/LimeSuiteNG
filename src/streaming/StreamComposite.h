@@ -5,7 +5,6 @@
 #include <memory>
 #include "limesuiteng/config.h"
 #include "limesuiteng/complex.h"
-#include "limesuiteng/SDRDevice.h"
 #include "limesuiteng/StreamConfig.h"
 #include "limesuiteng/RFStream.h"
 
@@ -13,23 +12,17 @@ namespace lime {
 
 struct StreamMeta;
 
-/** @brief Structure for holding information about the aggregate stream. */
-struct LIME_API StreamAggregate {
-    SDRDevice* device; ///< The device the stream is coming from.
-    std::vector<int32_t> channels; ///< The channels the device is streaming with.
-    int32_t streamIndex; ///< The index of the stream.
-};
-
 /** @brief Class for managing streaming from multiple devices at the same time. */
 class LIME_API StreamComposite : public RFStream
 {
   public:
-    StreamComposite() = delete;
+    StreamComposite();
+    virtual ~StreamComposite();
 
-    /// @brief Constructs the StreamComposite object.
-    /// @param aggregate The list of streams to aggregate and present as single combined stream.
-    /// The composite takes over ownership of the aggregate streams.
-    StreamComposite(std::vector<std::unique_ptr<RFStream>>& aggregate);
+    /// @brief Adds given stream into streams aggregation.
+    /// @param stream Stream interface to be added.
+    /// The StreamComposite takes over ownership of the aggregate streams.
+    OpStatus Add(std::unique_ptr<RFStream> stream);
 
     /// @copydoc RFStream::Setup()
     OpStatus Setup(const StreamConfig& config) override;
@@ -90,7 +83,7 @@ class LIME_API StreamComposite : public RFStream
     uint32_t StreamTx_T(const T* const* samples, uint32_t count, const StreamMeta* meta, std::chrono::microseconds timeout);
 
     std::vector<StreamConfig> SplitAggregateStreamSetup(const StreamConfig& cfg);
-    std::vector<std::unique_ptr<RFStream>> mAggregate;
+    std::vector<RFStream*> mAggregate;
     StreamConfig mConfig;
     bool warnAboutMisalignment; // warn only once if channels get desynced
 };
