@@ -485,19 +485,19 @@ class LIME_API SDRDevice
     /// @param count The amount of samples to transmit.
     /// @param meta The metadata of the packets of the stream.
     /// @return The amount of samples transmitted.
-    virtual uint32_t StreamTx(uint8_t moduleIndex,
+    [[deprecated]] virtual uint32_t StreamTx(uint8_t moduleIndex,
         const lime::complex32f_t* const* samples,
         uint32_t count,
         const StreamMeta* meta,
         std::chrono::microseconds timeout = DEFAULT_TIMEOUT) = 0;
     /// @copydoc SDRDevice::StreamTx()
-    virtual uint32_t StreamTx(uint8_t moduleIndex,
+    [[deprecated]] virtual uint32_t StreamTx(uint8_t moduleIndex,
         const lime::complex16_t* const* samples,
         uint32_t count,
         const StreamMeta* meta,
         std::chrono::microseconds timeout = DEFAULT_TIMEOUT) = 0;
     /// @copydoc SDRDevice::StreamRx()
-    virtual uint32_t StreamTx(uint8_t moduleIndex,
+    [[deprecated]] virtual uint32_t StreamTx(uint8_t moduleIndex,
         const lime::complex12_t* const* samples,
         uint32_t count,
         const StreamMeta* meta,
@@ -507,7 +507,7 @@ class LIME_API SDRDevice
     /// @param moduleIndex The index of the device to retrieve the status from.
     /// @param rx The pointer (or nullptr if not needed) to store the receive statistics to.
     /// @param tx The pointer (or nullptr if not needed) to store the transmit statistics to.
-    virtual void StreamStatus(uint8_t moduleIndex, StreamStats* rx, StreamStats* tx) = 0;
+    [[deprecated]] virtual void StreamStatus(uint8_t moduleIndex, StreamStats* rx, StreamStats* tx) = 0;
 
     /// @brief Creates a RF data streaming interface for selected RF module.
     /// @param config The configuration to use for setting the streams up.
