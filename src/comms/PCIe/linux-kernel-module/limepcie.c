@@ -24,6 +24,8 @@
 #include "bsp/config.h"
 #include "boards.h"
 
+#define ADD_UART_INTERFACE 1
+
 #define LIMEMICROSYSTEMS_VENDOR_ID 0x2058
 
 #define XILINX_FPGA_VENDOR_ID 0x10EE
@@ -122,6 +124,10 @@ struct limepcie_device {
     int minor_base;
     int irq_count;
     struct limepcie_data_cdev control_cdev; // non DMA channel for control packets
+
+#if ADD_UART_INTERFACE
+    struct platform_device *uart;
+#endif
 };
 
 static int gDeviceCounter = 0;
@@ -1415,6 +1421,21 @@ static int limepcie_device_init(struct limepcie_device *myDevice, struct pci_dev
     if (ret < 0)
         return ret;
 
+#if ADD_UART_INTERFACE
+    struct resource *tty_res = NULL;
+    tty_res = devm_kzalloc(sysDev, sizeof(struct resource), GFP_KERNEL);
+    if (!tty_res)
+        return -ENOMEM;
+    tty_res->start = (resource_size_t)myDevice->bar0_addr + CSR_GNSS_UART_RXTX_ADDR - CSR_BASE;
+    tty_res->flags = IORESOURCE_REG;
+    myDevice->uart = platform_device_register_simple("limeuart", gDeviceCounter, tty_res, 1);
+    if (IS_ERR(myDevice->uart))
+    {
+        ret = PTR_ERR(myDevice->uart);
+        return -1;
+    }
+#endif
+
     ++gDeviceCounter;
 
     sema_init(&myDevice->control_semaphore, 1);
@@ -1438,6 +1459,8 @@ static void limepcie_device_destroy(struct limepcie_device *myDevice)
         limepcie_cdev_destroy(&myDevice->data_cdevs[i]);
 
     limepcie_cdev_destroy(&myDevice->control_cdev);
+
+    platform_device_unregister(myDevice->uart);
 }
 
 static int limepcie_pci_probe(struct pci_dev *pciContext, const struct pci_device_id *id)
@@ -1517,6 +1540,7 @@ static int __init limepcie_module_init(void)
         pr_err(" Error while registering PCI driver\n");
         goto fail_register;
     }
+
     return 0;
 
 fail_register:

@@ -73,3 +73,5 @@ add_kernel_module(
     bsp/soc.h
     INCLUDES
     bsp)
+
+add_kernel_module(NAME limeuart VERSION ${DRIVER_VERSION} GITHASH ${GITHASH} SOURCES limeuart.c limeuart.h version.h litex.h)
