@@ -19,6 +19,7 @@
 
 #include "version.h"
 
+MODULE_VERSION(LIMEPCIE_VERSION);
 MODULE_AUTHOR("Lime Microsystems");
 MODULE_DESCRIPTION("LimeUART serial driver");
 MODULE_LICENSE("GPL");
