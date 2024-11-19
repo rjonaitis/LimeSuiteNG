@@ -1,3 +1,6 @@
+
+//#define DEBUG
+
 #include <linux/console.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -50,6 +53,8 @@ static struct resource *local_platform_get_mem_or_io(struct platform_device *dev
 #define OFF_RXTX 0x00
 #define OFF_TXFULL 0x04
 #define OFF_RXEMPTY 0x08
+#define OFF_TXEMPTY 0x18
+#define OFF_RXFULL 0x1c
 #define OFF_EV_STATUS 0x0c
 #define OFF_EV_PENDING 0x10
 #define OFF_EV_ENABLE 0x14
@@ -194,6 +199,16 @@ static int limeuart_startup(struct uart_port *port)
 {
     dev_dbg(port->dev, "%s\n", __func__);
     struct limeuart_port *uart = to_limeuart_port(port);
+
+    // verify if UART is functioning, otherwise Rx polling will get stuck in infinite loop
+    uint32_t txfull = litex_read8(port->membase + OFF_TXFULL);
+    uint32_t txempty = litex_read8(port->membase + OFF_TXEMPTY);
+
+    if (!txfull && !txempty)
+    {
+        dev_warn(port->dev, "UART is not present\n");
+        return -ENODEV;
+    }
 
     // disable events
     litex_write8(port->membase + OFF_EV_ENABLE, 0);
