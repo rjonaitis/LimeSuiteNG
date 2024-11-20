@@ -39,7 +39,10 @@ sudo ldconfig
 git clone https://github.com/myriadrf/LimeSuiteNG
 cd LimeSuiteNG
 cmake -B build
-cmake --build build
+cmake --build build --config Release
+
+Optionally can be installed into system, installation requires to be ran with Administrative privileges
+cmake --install build --config Release
 ```
 
 ## Documentation
