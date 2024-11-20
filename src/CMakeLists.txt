@@ -105,6 +105,10 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug"
     endif()
 endif()
 
+if(WIN32) # Windows don't have RPATH support, so need to place the DLLs into same directory as binaries
+    set_target_properties(limesuiteng PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+endif()
+
 install(
     TARGETS limesuiteng
     EXPORT limesuitengTarget

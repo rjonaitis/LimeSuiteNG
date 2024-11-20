@@ -97,8 +97,7 @@ set(WXWIDGETS_PCH
 add_executable(limeGUI resources/resource.rc)
 target_precompile_headers(limeGUI PRIVATE ${CPP_STL_PCH} ${WXWIDGETS_PCH})
 
-set(BINARY_OUTPUT_DIR "${CMAKE_BINARY_DIR}/bin")
-set_target_properties(limeGUI PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${BINARY_OUTPUT_DIR})
+set_target_properties(limeGUI PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 target_sources(
     limeGUI
@@ -160,9 +159,6 @@ if(WIN32)
     endif(CMAKE_SIZEOF_VOID_P EQUAL 8)
 
     get_cmake_property(IS_MULTI_CONF GENERATOR_IS_MULTI_CONFIG)
-    if(${IS_MULTI_CONF})
-        set(additional_folder "/$<CONFIG>")
-    endif()
 
     set(debug_flag "$<$<CONFIG:Debug>:d>")
     set(release_dir "$<$<NOT:$<CONFIG:Debug>>:/ReleaseDLLs/lib/vc14x${x64_postfix}_dll>")
@@ -175,7 +171,12 @@ if(WIN32)
             ${wxWidgets_LIB_DIR}${release_dir}/wxmsw32u${debug_flag}_gl_vc14x${x64_postfix}.dll
             ${wxWidgets_LIB_DIR}${release_dir}/wxmsw32u${debug_flag}_core_vc14x${x64_postfix}.dll
             ${wxWidgets_LIB_DIR}${release_dir}/wxbase32u${debug_flag}_vc14x${x64_postfix}.dll
-            ${BINARY_OUTPUT_DIR}${additional_folder})
+            $<TARGET_PROPERTY:limeGUI,RUNTIME_OUTPUT_DIRECTORY>/$<${IS_MULTI_CONF}:$<CONFIG>>)
+    install(
+        FILES ${wxWidgets_LIB_DIR}${release_dir}/wxmsw32u${debug_flag}_gl_vc14x${x64_postfix}.dll
+              ${wxWidgets_LIB_DIR}${release_dir}/wxmsw32u${debug_flag}_core_vc14x${x64_postfix}.dll
+              ${wxWidgets_LIB_DIR}${release_dir}/wxbase32u${debug_flag}_vc14x${x64_postfix}.dll
+        DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif(WIN32)
 
 install(TARGETS limeGUI DESTINATION bin)
