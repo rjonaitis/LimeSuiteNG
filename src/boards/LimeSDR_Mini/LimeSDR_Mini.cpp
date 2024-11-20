@@ -73,7 +73,7 @@ static const std::vector<std::pair<uint16_t, uint16_t>> lms7002defaultsOverrides
     { 0x0113, 0x03C2 },
     { 0x0114, 0x00D0 },
     { 0x0117, 0x1230 },
-    { 0x0119, 0x18D2 },
+    { 0x0119, 0x18CC },
     { 0x011C, 0x8941 },
     { 0x011D, 0x0000 },
     { 0x011E, 0x0740 },
@@ -122,7 +122,7 @@ static const std::vector<std::pair<uint16_t, uint16_t>> lms7002defaultsOverrides
     { 0x0113, 0x03C2 },
     { 0x0114, 0x00D0 },
     { 0x0117, 0x1230 },
-    { 0x0119, 0x18D2 },
+    { 0x0119, 0x18CC },
     { 0x011C, 0x8941 },
     { 0x011D, 0x0000 },
     { 0x011E, 0x0740 },
@@ -333,8 +333,8 @@ OpStatus LimeSDR_Mini::Init()
     // Otherwise if TxLPF is not configured, or CG_IAMP_TBB is not set explicitly to match it.
     // it can result in inconsistent Tx gain results.
     lms->SetActiveChannel(LMS7002M::Channel::ChA);
-    lms->SetTxLPF(20);
-    lms->SetRxLPF(20);
+    lms->SetTxLPF(20e6);
+    lms->SetRxLPF(20e6);
     // SetActiveChannel(Channel::ChB);
     // SetTxLPF(0);
     // SetRxLPF(0);
