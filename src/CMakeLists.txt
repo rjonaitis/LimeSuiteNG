@@ -29,7 +29,6 @@ set(LIME_SUITE_SOURCES
     FPGA/WriteRegistersBatch.cpp
     threadHelper/threadHelper.cpp
     memory/MemoryPool.cpp
-    API/LMS_APIWrapper.cpp
     API/LimePlugin.cpp
     include/limesuiteng/SDRDevice.cpp
     utilities/toString.cpp)
@@ -140,3 +139,12 @@ if(ENABLE_HEADERS AND ENABLE_LIBRARY)
 
     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/limesuiteng.pc DESTINATION lib${LIB_SUFFIX}/pkgconfig)
 endif(ENABLE_HEADERS AND ENABLE_LIBRARY)
+
+
+########################################################################
+# LMS_API Wrapper lib
+# wrapper functions split into separate library to avoid symbols collision
+# if both limesuiteng and LimeSuite would be linked to application.
+########################################################################
+add_library(limesuiteng-legacyapi API/LMS_APIWrapper.cpp)
+target_link_libraries(limesuiteng-legacyapi PRIVATE limesuiteng)
