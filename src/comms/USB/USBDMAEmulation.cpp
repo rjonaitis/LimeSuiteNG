@@ -166,7 +166,9 @@ USBDMAEmulation::State USBDMAEmulation::GetCounters()
 
 OpStatus USBDMAEmulation::SubmitRequest(uint64_t index, uint32_t bytesCount, DataTransferDirection dir, bool irq)
 {
-    assert(isEnabled);
+    if (!isEnabled)
+        return OpStatus::Error;
+
     assert(bytesCount > 0);
     assert(index < mappings.size());
 
@@ -177,8 +179,8 @@ OpStatus USBDMAEmulation::SubmitRequest(uint64_t index, uint32_t bytesCount, Dat
     {
         AsyncXfer* async = transfers.front();
         async->requestedSize = bytesCount;
-        OpStatus status = port->BeginDataXfer(async->xfer, mappings[lastRequestIndex].buffer, async->requestedSize, endpoint);
-        lastRequestIndex = (lastRequestIndex + 1) % mappings.size();
+        OpStatus status = port->BeginDataXfer(async->xfer, mappings[index].buffer, async->requestedSize, endpoint);
+        lastRequestIndex = index; //(lastRequestIndex + 1) % mappings.size();
         if (status != OpStatus::Success)
             return OpStatus::Error;
         transfers.pop();

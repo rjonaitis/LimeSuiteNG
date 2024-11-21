@@ -1,5 +1,6 @@
 #include "MM_X8.h"
 
+#include <cmath>
 #include <fcntl.h>
 #include <sstream>
 
@@ -14,7 +15,7 @@
 #include "DeviceTreeNode.h"
 #include "utilities/toString.h"
 
-#include <cmath>
+#include "RFStream_X8.h"
 
 using namespace std::literals::string_literals;
 
@@ -45,6 +46,7 @@ LimeSDR_MMX8::LimeSDR_MMX8(std::vector<std::shared_ptr<IComms>>& spiLMS7002M,
     , mTRXStreamPorts(trxStreams)
     , mADF(std::make_unique<ADF4002>())
 {
+    mStreamers.resize(8);
     /// Do not perform any unnecessary configuring to device in constructor, so you
     /// could read back it's state for debugging purposes
 
@@ -136,9 +138,10 @@ OpStatus LimeSDR_MMX8::Configure(const SDRConfig& cfg, uint8_t socIndex)
 
 OpStatus LimeSDR_MMX8::Init()
 {
-    FPGA tempFPGA(mMainFPGAcomms, nullptr);
-    tempFPGA.WriteRegister(0x000A, 0); // stop all data streams
     OpStatus status = OpStatus::Success;
+    maskStreamIsSetup = 0;
+    StreamsTrigger();
+
     for (size_t i = 0; i < mSubDevices.size(); ++i)
     {
         // TODO: check if the XTRX board slot is populated
@@ -607,27 +610,18 @@ OpStatus LimeSDR_MMX8::SetTestSignal(uint8_t moduleIndex,
     return mSubDevices[moduleIndex]->SetTestSignal(0, direction, channel, signalConfiguration, dc_i, dc_q);
 }
 
-ChannelConfig::Direction::TestSignal LimeSDR_MMX8::GetTestSignal(uint8_t moduleIndex, TRXDir direction, uint8_t channel)
-{
-    if (moduleIndex >= 8)
-    {
-        moduleIndex = 0;
-    }
-
-    return mSubDevices[moduleIndex]->GetTestSignal(0, direction, channel);
-}
-
 OpStatus LimeSDR_MMX8::StreamSetup(const StreamConfig& config, uint8_t moduleIndex)
 {
-    OpStatus status = mSubDevices.at(moduleIndex)->StreamSetup(config, 0);
-    if (status != OpStatus::Success)
-        return status;
+    if (moduleIndex >= mSubDevices.size())
+        return OpStatus::InvalidValue;
 
-    // Preemptively start subdevices stream during X8 stream setup. Threads and DMA will be ready
-    // but the actual data stream will wait for stream enable on X8 FPGA.
-    // That's to minimize time difference between X8 multiple streaming groups start.
-    maskStreamIsSetup |= (1 << (2 * moduleIndex));
-    mSubDevices.at(moduleIndex)->StreamStart(0);
+    std::unique_ptr<RFStream> xtrxstream = mSubDevices.at(moduleIndex)->StreamCreate(config, 0);
+    mStreamers.at(moduleIndex) = std::make_unique<RFStream_X8>(this, std::move(xtrxstream), moduleIndex);
+
+    // OpStatus status = mSubDevices.at(moduleIndex)->StreamSetup(config, 0);
+    if (!mStreamers.at(moduleIndex))
+        return OpStatus::Error;
+
     return OpStatus::Success;
 }
 
@@ -639,23 +633,11 @@ void LimeSDR_MMX8::StreamStart(uint8_t moduleIndex)
 
 void LimeSDR_MMX8::StreamStart(const std::vector<uint8_t>& moduleIndexes)
 {
-    // X8 board has two stage stream start.
-    // start stream for expected subdevices, they will wait for secondary enable from main fpga register
-    FPGA tempFPGA(mMainFPGAcomms, nullptr);
-    int interface_ctrl_000A = tempFPGA.ReadRegister(0x000A);
-    uint16_t mask = 0;
-    for (uint8_t moduleIndex : moduleIndexes)
-    {
-        mask |= (1 << (2 * moduleIndex));
-        // mSubDevices[moduleIndex]->StreamStart(0); // already started preemptively on StreamSetup
-    }
-    maskStreamIsActive |= mask;
+    for (auto index : moduleIndexes)
+        mStreamers.at(index)->StageStart();
 
-    // If multiple streaming groups have been setup, start all of them upon first group's start, so they would be synchronized in time
-    if (maskStreamIsActive != maskStreamIsSetup)
-        maskStreamIsActive = maskStreamIsSetup;
-
-    tempFPGA.WriteRegister(0x000A, interface_ctrl_000A | maskStreamIsActive);
+    for (auto index : moduleIndexes)
+        mStreamers.at(index)->Start();
 }
 
 void LimeSDR_MMX8::StreamStop(uint8_t moduleIndex)
@@ -666,24 +648,14 @@ void LimeSDR_MMX8::StreamStop(uint8_t moduleIndex)
 
 void LimeSDR_MMX8::StreamStop(const std::vector<uint8_t>& moduleIndexes)
 {
-    FPGA tempFPGA(mMainFPGAcomms, nullptr);
-    int interface_ctrl_000A = tempFPGA.ReadRegister(0x000A);
-    uint16_t mask = 0;
-    for (uint8_t moduleIndex : moduleIndexes)
-    {
-        mask |= (1 << (2 * moduleIndex));
-    }
-    maskStreamIsActive &= ~mask;
-    for (uint8_t moduleIndex : moduleIndexes) // subDevice streams stop postponed to StreamDestroy
-        mSubDevices[moduleIndex]->StreamStop(0);
-    tempFPGA.WriteRegister(0x000A, interface_ctrl_000A & ~mask);
+    for (auto index : moduleIndexes)
+        mStreamers.at(index)->Stop();
 }
 
 void LimeSDR_MMX8::StreamDestroy(uint8_t moduleIndex)
 {
-    mSubDevices.at(moduleIndex)->StreamStop(0);
-    mSubDevices.at(moduleIndex)->StreamDestroy(0);
-    maskStreamIsSetup &= ~(1 << (2 * moduleIndex));
+    mStreamers.at(moduleIndex)->Stop();
+    mStreamers.at(moduleIndex).reset();
 }
 
 uint32_t LimeSDR_MMX8::StreamRx(
@@ -734,6 +706,23 @@ uint32_t LimeSDR_MMX8::StreamTx(uint8_t moduleIndex,
 void LimeSDR_MMX8::StreamStatus(uint8_t moduleIndex, StreamStats* rx, StreamStats* tx)
 {
     mSubDevices[moduleIndex]->StreamStatus(0, rx, tx);
+}
+
+ChannelConfig::Direction::TestSignal LimeSDR_MMX8::GetTestSignal(uint8_t moduleIndex, TRXDir direction, uint8_t channel)
+{
+    if (moduleIndex >= 8)
+    {
+        moduleIndex = 0;
+    }
+
+    return mSubDevices[moduleIndex]->GetTestSignal(0, direction, channel);
+}
+
+std::unique_ptr<lime::RFStream> LimeSDR_MMX8::StreamCreate(const StreamConfig& config, uint8_t moduleIndex)
+{
+    std::unique_ptr<RFStream> xtrxstream = mSubDevices.at(moduleIndex)->StreamCreate(config, 0);
+    std::unique_ptr<RFStream_X8> stream = std::make_unique<RFStream_X8>(this, std::move(xtrxstream), moduleIndex);
+    return stream;
 }
 
 OpStatus LimeSDR_MMX8::SPI(uint32_t chipSelect, const uint32_t* MOSI, uint32_t* MISO, uint32_t count)
@@ -863,6 +852,30 @@ OpStatus LimeSDR_MMX8::MemoryRead(std::shared_ptr<DataStorage> storage, Region r
 OpStatus LimeSDR_MMX8::UploadTxWaveform(const StreamConfig& config, uint8_t moduleIndex, const void** samples, uint32_t count)
 {
     return mSubDevices[moduleIndex]->UploadTxWaveform(config, 0, samples, count);
+}
+
+OpStatus LimeSDR_MMX8::StreamsTrigger()
+{
+    // X8 board has two stage stream start.
+    // start stream for expected subdevices, they will wait for secondary enable from main fpga register
+    FPGA tempFPGA(mMainFPGAcomms, nullptr);
+    uint32_t interface_ctrl_000A = tempFPGA.ReadRegister(0x000A);
+    if (interface_ctrl_000A == maskStreamIsSetup)
+        return OpStatus::Success;
+
+    interface_ctrl_000A = maskStreamIsSetup;
+    lime::debug("MMX8: streams enable %04X", interface_ctrl_000A);
+    tempFPGA.WriteRegister(0x000A, interface_ctrl_000A);
+    return OpStatus::Success;
+}
+
+void LimeSDR_MMX8::StreamEnable(uint8_t moduleIndex, bool ready)
+{
+    uint16_t mask = (1 << (2 * moduleIndex));
+    if (ready)
+        maskStreamIsSetup |= mask;
+    else
+        maskStreamIsSetup &= ~mask;
 }
 
 } //namespace lime

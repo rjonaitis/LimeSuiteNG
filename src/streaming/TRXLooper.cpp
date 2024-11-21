@@ -188,9 +188,17 @@ OpStatus TRXLooper::Setup(const StreamConfig& cfg)
     return OpStatus::Success;
 }
 
+const StreamConfig& TRXLooper::GetConfig() const
+{
+    return mConfig;
+}
+
 /// @brief Starts the stream of this looper.
 OpStatus TRXLooper::Start()
 {
+    if (mStreamEnabled)
+        return OpStatus::Success;
+
     OpStatus status = fpga->SelectModule(chipId);
     if (status != OpStatus::Success)
         return status;
@@ -205,6 +213,11 @@ OpStatus TRXLooper::Start()
         streamActive.notify_all();
     }
     return OpStatus::Success;
+}
+
+OpStatus TRXLooper::StageStart()
+{
+    return OpStatus::NotImplemented;
 }
 
 /// @brief Stops the stream and cleans up all the memory.
@@ -1292,31 +1305,27 @@ uint32_t TRXLooper::StreamTx(
     return StreamTxTemplate(samples, count, meta, timeout);
 }
 
-/// @brief Gets statistics from a specified transfer direction.
-/// @param dir The direction of which to get the statistics.
-/// @return The statistics of the transfers.
-StreamStats TRXLooper::GetStats(TRXDir dir) const
+/// @brief Gets Rx/Tx data transfer statistics.
+/// @param rxStats Pointer to rx statistics structure, (Optional, can be NULL)
+/// @param txStats Pointer to rx statistics structure, (Optional, can be NULL)
+void TRXLooper::StreamStatus(StreamStats* rxStats, StreamStats* txStats)
 {
-    StreamStats stats;
-
-    if (dir == TRXDir::Tx)
+    if (txStats)
     {
-        stats = mTx.stats;
+        *txStats = mTx.stats;
         if (mTx.fifo)
-            stats.FIFO = { mTx.fifo->max_size(), mTx.fifo->size() };
+            txStats->FIFO = { mTx.fifo->max_size(), mTx.fifo->size() };
         else
-            stats.FIFO = { 1, 0 };
+            txStats->FIFO = { 1, 0 };
     }
-    else
+    if (rxStats)
     {
-        stats = mRx.stats;
+        *rxStats = mRx.stats;
         if (mRx.fifo)
-            stats.FIFO = { mRx.fifo->max_size(), mRx.fifo->size() };
+            rxStats->FIFO = { mRx.fifo->max_size(), mRx.fifo->size() };
         else
-            stats.FIFO = { 1, 0 };
+            rxStats->FIFO = { 1, 0 };
     }
-
-    return stats;
 }
 
 /// @copydoc SDRDevice::UploadTxWaveform()

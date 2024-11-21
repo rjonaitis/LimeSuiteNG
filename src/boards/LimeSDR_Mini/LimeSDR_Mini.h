@@ -49,6 +49,8 @@ class LimeSDR_Mini : public LMS7002M_SDRDevice
     void SetSerialNumber(const std::string& number);
     OpStatus SetAntenna(uint8_t moduleIndex, TRXDir trx, uint8_t channel, uint8_t path) override;
 
+    std::unique_ptr<lime::RFStream> StreamCreate(const StreamConfig& config, uint8_t moduleIndex) override;
+
   private:
     static OpStatus UpdateFPGAInterface(void* userData);
     OpStatus SetRFSwitch(TRXDir dir, uint8_t path);

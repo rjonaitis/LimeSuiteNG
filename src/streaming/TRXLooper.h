@@ -10,6 +10,7 @@
 #include "limesuiteng/SDRDevice.h"
 #include "limesuiteng/StreamConfig.h"
 #include "limesuiteng/complex.h"
+#include "limesuiteng/RFStream.h"
 #include "PacketsFIFO.h"
 #include "memory/MemoryPool.h"
 #include "SamplesPacket.h"
@@ -21,26 +22,24 @@ class IDMA;
 class LMS7002M;
 
 /** @brief Class responsible for receiving and transmitting continuous sample data */
-class TRXLooper
+class TRXLooper : public RFStream
 {
   public:
     TRXLooper(std::shared_ptr<IDMA> rx, std::shared_ptr<IDMA> tx, FPGA* f, LMS7002M* chip, uint8_t moduleIndex);
-    ~TRXLooper();
+    virtual ~TRXLooper();
 
-    uint64_t GetHardwareTimestamp() const;
+    uint64_t GetHardwareTimestamp() const override;
     OpStatus SetHardwareTimestamp(const uint64_t now);
     OpStatus Setup(const lime::StreamConfig& cfg);
-    OpStatus Start();
+    const StreamConfig& GetConfig() const override;
+    OpStatus Start() override;
+    OpStatus StageStart() override;
     void Stop();
-    void Teardown();
+    void Teardown() override;
 
     /// @brief Gets whether the stream is currently running or not.
     /// @return The current status of the stream (true if running).
     constexpr inline bool IsStreamRunning() const { return mStreamEnabled; }
-
-    /// @brief Gets the current configuration of the stream.
-    /// @return The current configuration of the stream.
-    constexpr inline const lime::StreamConfig& GetConfig() const { return mConfig; }
     uint32_t StreamRx(lime::complex32f_t* const* samples, uint32_t count, StreamMeta* meta, std::chrono::microseconds timeout);
     uint32_t StreamRx(lime::complex16_t* const* samples, uint32_t count, StreamMeta* meta, std::chrono::microseconds timeout);
     uint32_t StreamRx(lime::complex12_t* const* samples, uint32_t count, StreamMeta* meta, std::chrono::microseconds timeout);
@@ -54,8 +53,7 @@ class TRXLooper
     /// @brief Sets the callback to use for message logging.
     /// @param callback The new callback to use.
     void SetMessageLogCallback(SDRDevice::LogCallbackType callback) { mCallback_logMessage = callback; }
-
-    StreamStats GetStats(TRXDir tx) const;
+    void StreamStatus(StreamStats* rx, StreamStats* tx) override;
 
     /// @brief The type of a sample packet.
     typedef SamplesPacket<2> SamplesPacketType;

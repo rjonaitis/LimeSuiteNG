@@ -2,6 +2,7 @@
 #include "lime/LimeSuite.h"
 #include "limesuiteng/limesuiteng.hpp"
 #include "limesuiteng/LMS7002M.h"
+#include "limesuiteng/RFStream.h"
 #include "chips/LMS7002M/LMS7002MCSR_Data.h"
 #include "utilities/DeltaVariable.h"
 #include "utilities/toString.h"
@@ -76,6 +77,7 @@ struct StreamStagingBuffers {
 struct LMS_APIDevice {
     lime::SDRDevice* device;
     lime::StreamConfig lastSavedStreamConfig;
+    std::unique_ptr<lime::RFStream> stream;
     std::array<std::array<float_type, 2>, lime::SDRConfig::MAX_CHANNEL_COUNT> lastSavedLPFValue;
     StatsDeltas statsDeltas;
 
@@ -117,6 +119,7 @@ struct SubChannelHandle {
     LMS_APIDevice* parent;
     StreamStagingBuffers* stagingArea;
     size_t channelIndex;
+    RFStream* stream;
 
     SubChannelHandle() = delete;
     SubChannelHandle(LMS_APIDevice* parent, StreamStagingBuffers* staging, uint8_t index)
@@ -708,8 +711,12 @@ API_EXPORT int CALL_CONV LMS_SetupStream(lms_device_t* device, lms_stream_t* str
     }
 
     // stream->throughputVsLatency can be ignored, it's automatic now
+    apiDevice->stream.reset();
+    apiDevice->stream = apiDevice->device->StreamCreate(config, apiDevice->moduleIndex);
+    if (!apiDevice->stream)
+        return OpStatusToReturnCode(OpStatus::Error);
 
-    OpStatus status = apiDevice->device->StreamSetup(config, apiDevice->moduleIndex);
+    OpStatus status = apiDevice->stream->Setup(config);
     if (status != OpStatus::Success)
         return OpStatusToReturnCode(status);
 
@@ -737,7 +744,8 @@ API_EXPORT int CALL_CONV LMS_DestroyStream(lms_device_t* device, lms_stream_t* s
         return -1;
     }
 
-    apiDevice->device->StreamDestroy(apiDevice->moduleIndex);
+    // apiDevice->device->StreamDestroy(apiDevice->moduleIndex);
+    apiDevice->stream.reset();
     SubChannelHandle* handle = reinterpret_cast<SubChannelHandle*>(stream->handle);
     handle->stagingArea->maskChannelsSetup = ClearBit(handle->stagingArea->maskChannelsSetup, handle->channelIndex);
     if (handle != nullptr)
@@ -768,7 +776,7 @@ API_EXPORT int CALL_CONV LMS_StartStream(lms_stream_t* stream)
     stage->maskChannelsActive = InsertBit(stage->maskChannelsActive, handle->channelIndex);
 
     if (stage->maskChannelsActive == stage->maskChannelsSetup)
-        handle->parent->device->StreamStart(handle->parent->moduleIndex);
+        handle->parent->stream->Start();
 
     return 0;
 }
@@ -790,7 +798,7 @@ API_EXPORT int CALL_CONV LMS_StopStream(lms_stream_t* stream)
     stage->maskChannelsActive = ClearBit(stage->maskChannelsActive, handle->channelIndex);
 
     if (stage->maskChannelsActive == 0)
-        handle->parent->device->StreamStop(handle->parent->moduleIndex);
+        handle->parent->stream->Stop();
 
     return 0;
 }
@@ -822,8 +830,7 @@ int ReceiveStream(lms_stream_t* stream, void* samples, size_t sample_count, lms_
         // if staging buffers are depleted request new batch
         lime::StreamMeta metadata{ 0, false, false };
         T* dest[2] = { reinterpret_cast<T*>(stage->buffer[0].data()), reinterpret_cast<T*>(stage->buffer[1].data()) };
-        size_t samplesProduced = handle->parent->device->StreamRx(
-            handle->parent->moduleIndex, reinterpret_cast<T**>(dest), sample_count, &metadata, timeout);
+        size_t samplesProduced = handle->parent->stream->StreamRx(reinterpret_cast<T**>(dest), sample_count, &metadata, timeout);
         samplesToReturn = samplesProduced;
         stage->maskDataPresentInBuffer = stage->maskChannelsActive;
         stage->bufferBytesFilled = samplesProduced * sampleSize;
@@ -921,8 +928,7 @@ int SendStream(
         }
 
         T* src[2] = { reinterpret_cast<T*>(stage->buffer[0].data()), reinterpret_cast<T*>(stage->buffer[1].data()) };
-        size_t samplesSent = handle->parent->device->StreamTx(
-            handle->parent->moduleIndex, reinterpret_cast<T**>(src), sample_count, &metadata, timeout);
+        size_t samplesSent = handle->parent->stream->StreamTx(reinterpret_cast<T**>(src), sample_count, &metadata, timeout);
         stage->maskDataPresentInBuffer = 0;
         stage->bufferBytesFilled = 0;
 
@@ -986,10 +992,10 @@ API_EXPORT int CALL_CONV LMS_GetStreamStatus(lms_stream_t* stream, lms_stream_st
     switch (direction)
     {
     case lime::TRXDir::Rx:
-        handle->parent->device->StreamStatus(handle->parent->moduleIndex, &stats, nullptr);
+        handle->parent->stream->StreamStatus(&stats, nullptr);
         break;
     case lime::TRXDir::Tx:
-        handle->parent->device->StreamStatus(handle->parent->moduleIndex, nullptr, &stats);
+        handle->parent->stream->StreamStatus(nullptr, &stats);
         break;
     default:
         break;

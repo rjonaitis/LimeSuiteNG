@@ -5,7 +5,6 @@ if(ENABLE_LIMEPCIE)
     add_subdirectory(LimeSDR_X3)
     add_subdirectory(LimeSDR_XTRX)
     add_subdirectory(MMX8)
-    add_subdirectory(external/XSDR)
 endif()
 
 if(ENABLE_USB_FX3)

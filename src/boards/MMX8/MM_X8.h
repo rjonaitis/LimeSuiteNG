@@ -17,6 +17,7 @@ namespace lime {
 class IComms;
 class LimePCIe;
 class LimeSDR_XTRX;
+class RFStream_X8;
 
 /** @brief Class for managing the LimeSDR-MMX8 device and its subdevices. */
 class LimeSDR_MMX8 : public SDRDevice
@@ -155,6 +156,8 @@ class LimeSDR_MMX8 : public SDRDevice
         std::chrono::microseconds timeout) override;
     void StreamStatus(uint8_t moduleIndex, StreamStats* rx, StreamStats* tx) override;
 
+    std::unique_ptr<lime::RFStream> StreamCreate(const StreamConfig& config, uint8_t moduleIndex) override;
+
     OpStatus SPI(uint32_t chipSelect, const uint32_t* MOSI, uint32_t* MISO, uint32_t count) override;
 
     OpStatus CustomParameterWrite(const std::vector<CustomParameterIO>& parameters) override;
@@ -170,16 +173,22 @@ class LimeSDR_MMX8 : public SDRDevice
     OpStatus MemoryRead(std::shared_ptr<DataStorage> storage, Region region, void* data) override;
     OpStatus UploadTxWaveform(const StreamConfig& config, uint8_t moduleIndex, const void** samples, uint32_t count) override;
 
+    /// @brief Activates RF samples streaming
+    OpStatus StreamsTrigger();
+
+    /// @brief Marks which streaming modules should be activated with a StreamsTrigger()
+    void StreamEnable(uint8_t moduleIndex, bool ready);
+
   private:
     std::shared_ptr<IComms> mMainFPGAcomms;
     SDRDescriptor mDeviceDescriptor;
     std::vector<std::shared_ptr<LimePCIe>> mTRXStreamPorts;
     std::vector<std::unique_ptr<LimeSDR_XTRX>> mSubDevices;
+    std::vector<std::unique_ptr<RFStream_X8>> mStreamers;
     std::map<uint32_t, LimeSDR_XTRX*> chipSelectToDevice;
     std::map<uint32_t, LimeSDR_XTRX*> customParameterToDevice;
     std::unique_ptr<lime::ADF4002> mADF;
     uint32_t maskStreamIsSetup{ 0 };
-    uint32_t maskStreamIsActive{ 0 };
 };
 
 } // namespace lime
