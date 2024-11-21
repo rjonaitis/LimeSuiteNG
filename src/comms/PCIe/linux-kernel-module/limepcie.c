@@ -25,6 +25,8 @@
 #include "boards.h"
 
 #define ADD_UART_INTERFACE 1
+#define MAX_UART_COUNT 8
+static int total_uart_counter = 0;
 
 #define LIMEMICROSYSTEMS_VENDOR_ID 0x2058
 
@@ -126,7 +128,8 @@ struct limepcie_device {
     struct limepcie_data_cdev control_cdev; // non DMA channel for control packets
 
 #if ADD_UART_INTERFACE
-    struct platform_device *uart;
+    struct platform_device *uart[MAX_UART_COUNT];
+    int uart_count;
 #endif
 };
 
@@ -1422,17 +1425,35 @@ static int limepcie_device_init(struct limepcie_device *myDevice, struct pci_dev
         return ret;
 
 #if ADD_UART_INTERFACE
-    struct resource *tty_res = NULL;
-    tty_res = devm_kzalloc(sysDev, sizeof(struct resource), GFP_KERNEL);
-    if (!tty_res)
-        return -ENOMEM;
-    tty_res->start = (resource_size_t)myDevice->bar0_addr + CSR_GNSS_UART_RXTX_ADDR - CSR_BASE;
-    tty_res->flags = IORESOURCE_REG;
-    myDevice->uart = platform_device_register_simple("limeuart", gDeviceCounter, tty_res, 1);
-    if (IS_ERR(myDevice->uart))
+    uint8_t uart_counter = limepcie_readl(myDevice, CSR_CNTRL_NUART_ADDR);
+    dev_info(sysDev, "UART count: %i", uart_counter);
+
+    if (uart_counter == 0xFF) // in case device has no NUART register
+        uart_counter = 0;
+    if (uart_counter > MAX_UART_COUNT)
+        uart_counter = MAX_UART_COUNT;
+
+    const int uart_csr_offset = CSR_PCIE_UART1_BASE - CSR_PCIE_UART0_BASE;
+    for (myDevice->uart_count = 0; myDevice->uart_count < uart_counter; ++myDevice->uart_count)
     {
-        ret = PTR_ERR(myDevice->uart);
-        return -1;
+        struct resource *tty_res = NULL;
+        tty_res = devm_kzalloc(sysDev, sizeof(struct resource), GFP_KERNEL);
+        if (!tty_res)
+        {
+            dev_err(sysDev, "Failed to allocate memory for UART%i\n", myDevice->uart_count);
+            break;
+        }
+        tty_res->start = (resource_size_t)myDevice->bar0_addr + CSR_PCIE_UART0_BASE + uart_csr_offset * myDevice->uart_count;
+        tty_res->flags = IORESOURCE_REG;
+        struct platform_device *uart = platform_device_register_simple("limeuart", total_uart_counter, tty_res, 1);
+        if (IS_ERR(uart))
+        {
+            dev_err(sysDev, "Failed to register UART%i\n", myDevice->uart_count);
+            break;
+        }
+        dev_info(sysDev, "UART%i at %llx", myDevice->uart_count, tty_res->start);
+        ++total_uart_counter;
+        myDevice->uart[myDevice->uart_count] = uart;
     }
 #endif
 
@@ -1460,7 +1481,11 @@ static void limepcie_device_destroy(struct limepcie_device *myDevice)
 
     limepcie_cdev_destroy(&myDevice->control_cdev);
 
-    platform_device_unregister(myDevice->uart);
+#if ADD_UART_INTERFACE
+    for (int i = 0; i < myDevice->uart_count; ++i)
+        platform_device_unregister(myDevice->uart[i]);
+    myDevice->uart_count = 0;
+#endif
 }
 
 static int limepcie_pci_probe(struct pci_dev *pciContext, const struct pci_device_id *id)
