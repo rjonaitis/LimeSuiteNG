@@ -11,7 +11,7 @@ if(ENABLE_DOXYGEN)
     add_custom_target(
         doxygen ALL
         ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/DoxygenConfig
-        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
         COMMENT "Generating Doxygen documentation"
         VERBATIM)
 endif()

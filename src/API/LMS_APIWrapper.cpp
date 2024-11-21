@@ -1497,9 +1497,10 @@ API_EXPORT int CALL_CONV LMS_SetNCOPhase(lms_device_t* device, bool dir_tx, size
             apiDevice->device->WriteRegister(apiDevice->moduleIndex, addr + i, pho);
         }
 
-        auto& selectionParameter = dir_tx ? SEL_TX : SEL_RX;
-        apiDevice->device->SetParameter(
-            apiDevice->moduleIndex, ch, selectionParameter.address, selectionParameter.msb, selectionParameter.lsb, 0);
+        const uint16_t addr = dir_tx ? 0x0240 : 0x0440; // SEL_TX, SEL_RX
+        const uint8_t msb = 4;
+        const uint8_t lsb = 1;
+        apiDevice->device->SetParameter(apiDevice->moduleIndex, ch, addr, msb, lsb, 0);
     }
 
     return 0;

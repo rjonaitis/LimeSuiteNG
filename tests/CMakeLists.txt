@@ -82,7 +82,7 @@ endif()
 target_compile_definitions(gtest-runner-hardware PRIVATE GTEST_LINKED_AS_SHARED_LIBRARY=0)
 target_link_libraries(
     gtest-runner-hardware
-    PRIVATE limesuiteng taywee::args cli-shared
+    PRIVATE limesuiteng limesuiteng-legacyapi taywee::args cli-shared
     PUBLIC $<BUILD_INTERFACE:GTest::gtest> $<BUILD_INTERFACE:GTest::gmock>)
 if(CMAKE_BINARY_DIR)
     set_target_properties(gtest-runner-hardware PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")

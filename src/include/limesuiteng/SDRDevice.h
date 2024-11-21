@@ -460,6 +460,7 @@ class LIME_API SDRDevice
     /// @param samples The buffer to put the received samples in.
     /// @param count The amount of samples to receive.
     /// @param meta The metadata of the packets of the stream.
+    /// @param timeout Number of microseconds for the operation to complete, function can return early if timeout is shorter than time required to gather requested amount of samples
     /// @return The amount of samples received.
     virtual uint32_t StreamRx(uint8_t moduleIndex,
         lime::complex32f_t* const* samples,
@@ -484,6 +485,7 @@ class LIME_API SDRDevice
     /// @param samples The buffer of the samples to transmit.
     /// @param count The amount of samples to transmit.
     /// @param meta The metadata of the packets of the stream.
+    /// @param timeout Number of microseconds for the operation to complete, function can return early if timeout is shorter than time required to gather requested amount of samples
     /// @return The amount of samples transmitted.
     [[deprecated]] virtual uint32_t StreamTx(uint8_t moduleIndex,
         const lime::complex32f_t* const* samples,

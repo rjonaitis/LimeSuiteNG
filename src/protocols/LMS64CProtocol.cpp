@@ -515,7 +515,7 @@ OpStatus CustomParameterRead(ISerialPort& port, std::vector<CustomParameterIO>& 
 /// @param data The program to write to the device.
 /// @param length The length of the program to write.
 /// @param prog_mode The programming mode to use.
-/// @param device The memory to write the program to.
+/// @param target The memory to write the program to.
 /// @param callback The callback to use for program write progress updates.
 /// @param subDevice The ID of the subdevice to use.
 /// @return The operation status.
