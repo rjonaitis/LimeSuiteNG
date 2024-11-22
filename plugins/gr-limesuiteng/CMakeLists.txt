@@ -120,8 +120,12 @@ endif(DOXYGEN_FOUND)
 configure_file(${PROJECT_SOURCE_DIR}/cmake/cmake_uninstall.cmake.in
                ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake @ONLY)
 
-add_custom_target(uninstall ${CMAKE_COMMAND} -P
+if (TARGET uninstall)
+    message(AUTHOR_WARNING "Parent project has already defined 'uninstall' target, gnuradio-limesuiteng will not have it's own uninstall.")
+else()
+    add_custom_target(uninstall ${CMAKE_COMMAND} -P
                             ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake)
+endif()
 
 ########################################################################
 # Add subdirectories

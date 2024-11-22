@@ -278,6 +278,22 @@ set(CPP_STL_PCH
     <vector>
     <queue>)
 
+########################################################################
+# uninstall target
+########################################################################
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cmake_uninstall.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
+    IMMEDIATE
+    @ONLY)
+
+#only add uninstall target if this is the top project
+if(TARGET uninstall)
+    message(AUTHOR_WARNING "Parent project has already defined 'uninstall' target, limesuiteng will not have it's own uninstall.")
+elseif(${CMAKE_PROJECT_NAME} STREQUAL ${PROJECT_NAME})
+    add_custom_target(uninstall COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake)
+endif()
+
 #########################################################################
 # externals
 #########################################################################
@@ -368,17 +384,3 @@ message(STATUS "Install prefix: ${CMAKE_INSTALL_PREFIX}")
 message(STATUS "Build timestamp: ${BUILD_TIMESTAMP}")
 message(STATUS "Lime Suite version: ${LIME_SUITE_VERSION}")
 message(STATUS "ABI/so version: ${LIME_SUITE_SOVER}")
-
-########################################################################
-# uninstall target
-########################################################################
-configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cmake_uninstall.cmake.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
-    IMMEDIATE
-    @ONLY)
-
-#only add uninstall target if this is the top project
-if(${CMAKE_PROJECT_NAME} STREQUAL ${PROJECT_NAME})
-    add_custom_target(uninstall COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake)
-endif()
