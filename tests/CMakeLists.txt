@@ -75,8 +75,8 @@ target_sources(
             streaming/RFStream_tests.cpp
             boards/LMS7002M_SDRDevice_Fixture.cpp)
 
-if (NOT MSVC)
-    SET_SOURCE_FILES_PROPERTIES( streaming/streaming.cpp PROPERTIES COMPILE_FLAGS -Wno-deprecated-declarations )
+if(NOT MSVC)
+    set_source_files_properties(streaming/streaming.cpp PROPERTIES COMPILE_FLAGS -Wno-deprecated-declarations)
 endif()
 
 target_compile_definitions(gtest-runner-hardware PRIVATE GTEST_LINKED_AS_SHARED_LIBRARY=0)
