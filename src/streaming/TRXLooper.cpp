@@ -881,7 +881,7 @@ OpStatus TRXLooper::TxSetup()
     const std::string name = "MemPool_Tx"s + std::to_string(chipId);
     const int upperAllocationLimit =
         sizeof(complex32f_t) * mTx.packetsToBatch * mTx.samplesInPkt * chCount + SamplesPacketType::headerSize;
-    mTx.memPool = std::make_unique<MemoryPool>(1024, upperAllocationLimit, 4096, name);
+    mTx.memPool = std::make_unique<MemoryPool>(1024, upperAllocationLimit, 8, name);
 
     mTx.terminate.store(false, std::memory_order_relaxed);
     mTx.terminateWorker.store(false, std::memory_order_relaxed);
