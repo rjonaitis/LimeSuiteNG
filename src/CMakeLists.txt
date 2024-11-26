@@ -33,8 +33,8 @@ set(LIME_SUITE_SOURCES
     include/limesuiteng/SDRDevice.cpp
     utilities/toString.cpp)
 
-if (NOT MSVC)
-    SET_SOURCE_FILES_PROPERTIES( include/limesuiteng/SDRDevice.cpp PROPERTIES COMPILE_FLAGS -Wno-deprecated-declarations )
+if(NOT MSVC)
+    set_source_files_properties(include/limesuiteng/SDRDevice.cpp PROPERTIES COMPILE_FLAGS -Wno-deprecated-declarations)
 endif()
 
 set_source_files_properties(mcu_program/common_src/lms7002m_controls.c PROPERTIES LANGUAGE CXX)
@@ -140,11 +140,12 @@ if(ENABLE_HEADERS AND ENABLE_LIBRARY)
     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/limesuiteng.pc DESTINATION lib${LIB_SUFFIX}/pkgconfig)
 endif(ENABLE_HEADERS AND ENABLE_LIBRARY)
 
-
 ########################################################################
 # LMS_API Wrapper lib
 # wrapper functions split into separate library to avoid symbols collision
 # if both limesuiteng and LimeSuite would be linked to application.
 ########################################################################
 add_library(limesuiteng-legacyapi API/LMS_APIWrapper.cpp)
+target_include_directories(
+    limesuiteng-legacyapi PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>)
 target_link_libraries(limesuiteng-legacyapi PRIVATE limesuiteng)
