@@ -25,10 +25,7 @@ if(DEFINED ENV{PYBOMBS_PREFIX})
     set(CMAKE_INSTALL_PREFIX
         $ENV{PYBOMBS_PREFIX}
         CACHE PATH "")
-    message(
-        STATUS
-            "PyBOMBS installed GNU Radio. Defaulting CMAKE_INSTALL_PREFIX to $ENV{PYBOMBS_PREFIX}"
-    )
+    message(STATUS "PyBOMBS installed GNU Radio. Defaulting CMAKE_INSTALL_PREFIX to $ENV{PYBOMBS_PREFIX}")
 endif()
 
 # Make sure our local CMake Modules path comes first
@@ -117,14 +114,14 @@ endif(DOXYGEN_FOUND)
 ########################################################################
 # Create uninstall target
 ########################################################################
-configure_file(${PROJECT_SOURCE_DIR}/cmake/cmake_uninstall.cmake.in
-               ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake @ONLY)
+configure_file(${PROJECT_SOURCE_DIR}/cmake/cmake_uninstall.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake @ONLY)
 
-if (TARGET uninstall)
-    message(AUTHOR_WARNING "Parent project has already defined 'uninstall' target, gnuradio-limesuiteng will not have it's own uninstall.")
+if(TARGET uninstall)
+    message(
+        AUTHOR_WARNING
+            "Parent project has already defined 'uninstall' target, gnuradio-limesuiteng will not have it's own uninstall.")
 else()
-    add_custom_target(uninstall ${CMAKE_COMMAND} -P
-                            ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake)
+    add_custom_target(uninstall ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake)
 endif()
 
 ########################################################################
@@ -151,11 +148,10 @@ endif(ENABLE_PYTHON)
 install(FILES cmake/Modules/gnuradio-limesuitengConfig.cmake DESTINATION ${GR_CMAKE_DIR})
 
 include(CMakePackageConfigHelpers)
-configure_package_config_file(
-    ${PROJECT_SOURCE_DIR}/cmake/Modules/targetConfig.cmake.in
-    ${CMAKE_CURRENT_BINARY_DIR}/cmake/Modules/${target}Config.cmake
-    INSTALL_DESTINATION ${GR_CMAKE_DIR})
+configure_package_config_file(${PROJECT_SOURCE_DIR}/cmake/Modules/targetConfig.cmake.in
+                              ${CMAKE_CURRENT_BINARY_DIR}/cmake/Modules/${target}Config.cmake INSTALL_DESTINATION ${GR_CMAKE_DIR})
 
-install(FILES MANIFEST.yml
+install(
+    FILES MANIFEST.yml
     RENAME MANIFEST-${VERSION_MAJOR}.${VERSION_API}.${VERSION_ABI}${VERSION_PATCH}.yml
     DESTINATION share/gnuradio/manifests/limesuiteng)

@@ -11,7 +11,10 @@
 ########################################################################
 include(GrPlatform) #define LIB_SUFFIX
 
-list(APPEND limesuiteng_sources)
+list(APPEND limesuiteng_sources
+    sdrdevice_manager.cc
+    sdrdevice_source_impl.cc
+    sdrdevice_sink_impl.cc)
 
 set(limesuiteng_sources
     "${limesuiteng_sources}"
@@ -22,7 +25,7 @@ if(NOT limesuiteng_sources)
 endif(NOT limesuiteng_sources)
 
 add_library(gnuradio-limesuiteng SHARED ${limesuiteng_sources})
-target_link_libraries(gnuradio-limesuiteng gnuradio::gnuradio-runtime)
+target_link_libraries(gnuradio-limesuiteng gnuradio::gnuradio-runtime limesuiteng)
 target_include_directories(
     gnuradio-limesuiteng
     PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>

@@ -24,7 +24,9 @@ include(GrPybind)
 # Python Bindings
 ########################################################################
 
-list(APPEND limesuiteng_python_files python_bindings.cc)
+list(APPEND limesuiteng_python_files
+    sdrdevice_source_python.cc
+    sdrdevice_sink_python.cc python_bindings.cc)
 
 gr_pybind_make_oot(limesuiteng ../../.. gr::limesuiteng "${limesuiteng_python_files}")
 

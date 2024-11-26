@@ -21,6 +21,8 @@ namespace py = pybind11;
 // Please do not delete
 /**************************************/
 // BINDING_FUNCTION_PROTOTYPES(
+void bind_sdrdevice_source(py::module& m);
+void bind_sdrdevice_sink(py::module& m);
 // ) END BINDING_FUNCTION_PROTOTYPES
 
 
@@ -49,5 +51,7 @@ PYBIND11_MODULE(limesuiteng_python, m)
     // Please do not delete
     /**************************************/
     // BINDING_FUNCTION_CALLS(
+    bind_sdrdevice_source(m);
+    bind_sdrdevice_sink(m);
     // ) END BINDING_FUNCTION_CALLS
 }
