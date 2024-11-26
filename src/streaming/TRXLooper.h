@@ -30,25 +30,34 @@ class TRXLooper : public RFStream
 
     uint64_t GetHardwareTimestamp() const override;
     OpStatus SetHardwareTimestamp(const uint64_t now);
-    OpStatus Setup(const lime::StreamConfig& cfg);
+    OpStatus Setup(const lime::StreamConfig& cfg) override;
     const StreamConfig& GetConfig() const override;
     OpStatus Start() override;
     OpStatus StageStart() override;
-    void Stop();
+    void Stop() override;
     void Teardown() override;
 
     /// @brief Gets whether the stream is currently running or not.
     /// @return The current status of the stream (true if running).
     constexpr inline bool IsStreamRunning() const { return mStreamEnabled; }
-    uint32_t StreamRx(lime::complex32f_t* const* samples, uint32_t count, StreamMeta* meta, std::chrono::microseconds timeout);
-    uint32_t StreamRx(lime::complex16_t* const* samples, uint32_t count, StreamMeta* meta, std::chrono::microseconds timeout);
-    uint32_t StreamRx(lime::complex12_t* const* samples, uint32_t count, StreamMeta* meta, std::chrono::microseconds timeout);
-    uint32_t StreamTx(
-        const lime::complex32f_t* const* samples, uint32_t count, const StreamMeta* meta, std::chrono::microseconds timeout);
-    uint32_t StreamTx(
-        const lime::complex16_t* const* samples, uint32_t count, const StreamMeta* meta, std::chrono::microseconds timeout);
-    uint32_t StreamTx(
-        const lime::complex12_t* const* samples, uint32_t count, const StreamMeta* meta, std::chrono::microseconds timeout);
+    uint32_t StreamRx(
+        lime::complex32f_t* const* samples, uint32_t count, StreamMeta* meta, std::chrono::microseconds timeout) override;
+    uint32_t StreamRx(
+        lime::complex16_t* const* samples, uint32_t count, StreamMeta* meta, std::chrono::microseconds timeout) override;
+    uint32_t StreamRx(
+        lime::complex12_t* const* samples, uint32_t count, StreamMeta* meta, std::chrono::microseconds timeout) override;
+    uint32_t StreamTx(const lime::complex32f_t* const* samples,
+        uint32_t count,
+        const StreamMeta* meta,
+        std::chrono::microseconds timeout) override;
+    uint32_t StreamTx(const lime::complex16_t* const* samples,
+        uint32_t count,
+        const StreamMeta* meta,
+        std::chrono::microseconds timeout) override;
+    uint32_t StreamTx(const lime::complex12_t* const* samples,
+        uint32_t count,
+        const StreamMeta* meta,
+        std::chrono::microseconds timeout) override;
 
     /// @brief Sets the callback to use for message logging.
     /// @param callback The new callback to use.

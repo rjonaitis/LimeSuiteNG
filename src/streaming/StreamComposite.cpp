@@ -145,7 +145,6 @@ uint32_t StreamComposite::StreamTx_T(
     const T* const* samples, uint32_t count, const StreamMeta* meta, std::chrono::microseconds timeout)
 {
     const T* const* src = samples;
-    uint8_t subDeviceCount = 0;
     uint8_t channelsCount = 0;
     for (auto& a : mAggregate)
     {
@@ -156,7 +155,6 @@ uint32_t StreamComposite::StreamTx_T(
         const int devChannels = a->GetConfig().channels.at(TRXDir::Tx).size();
         src += devChannels;
         channelsCount += devChannels;
-        ++subDeviceCount;
 
         // aggregate subdevices might not necessarilly be used
         if (channelsCount >= mConfig.channels[TRXDir::Tx].size())
