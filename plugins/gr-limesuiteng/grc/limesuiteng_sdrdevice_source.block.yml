@@ -82,7 +82,7 @@ parameters:
 - id: channel_indexes
   label: Data channel indexes
   dtype: int_vector
-  default: [0, 1]
+  default: [0]
   hide: part
   category: General
 
