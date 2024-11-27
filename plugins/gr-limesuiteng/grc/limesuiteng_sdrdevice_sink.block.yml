@@ -9,11 +9,11 @@ parameters:
 - id: data_format
   label: Type
   dtype: enum
-  options: [fc32, sc16, sc8]
-  option_labels: [Complex Float32, Complex Int16, Complex Byte]
+  options: [fc32, sc16]
+  option_labels: [Complex Float32, Complex Int16]
   option_attributes:
-    type: [fc32, sc16, sc8]
-    limeFormat: ["complex32f_t", "complex16_t", "complex8_t"]
+    type: [fc32, sc16]
+    limeFormat: ["complex32f_t", "complex16_t"]
   hide: part
   category: General
 
