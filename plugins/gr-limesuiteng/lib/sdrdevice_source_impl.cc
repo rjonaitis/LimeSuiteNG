@@ -124,13 +124,6 @@ bool sdrdevice_source_impl::start()
     assert(devContext);
 
     lime::SDRConfig& config = devContext->deviceConfig;
-    config.channel[0].tx.oversample = 2;
-
-    config.channel[0].rx.path = 3;
-    config.channel[0].rx.centerFrequency = 102.604e6;
-    config.channel[0].tx.centerFrequency = 1e9;
-    config.channel[0].rx.lpf = 20e6;
-    config.channel[0].rx.testSignal.enabled = false;
 
     devContext->sourceConfigReady = true;
 
@@ -298,6 +291,19 @@ double sdrdevice_source_impl::set_gain_generic(double gain_dB)
                 gain_dB;
     }
     return gain_dB;
+}
+
+double sdrdevice_source_impl::set_nco_frequency(double frequency_offset_Hz)
+{
+    GR_LOG_INFO(d_logger, fmt::format("{:s} {:f}", __func__, frequency_offset_Hz));
+    for (const int ch : devContext->streamCfg.channels.at(direction)) {
+        if (devContext->stream)
+            devContext->device->SetNCOFrequency(
+                chipIndex, direction, ch, 0, frequency_offset_Hz);
+        else
+            devContext->deviceConfig.channel[ch].rx.NCOoffset = frequency_offset_Hz;
+    }
+    return frequency_offset_Hz;
 }
 
 } /* namespace limesuiteng */

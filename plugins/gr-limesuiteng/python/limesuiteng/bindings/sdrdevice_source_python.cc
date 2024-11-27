@@ -14,7 +14,7 @@
 /* BINDTOOL_GEN_AUTOMATIC(0)                                                       */
 /* BINDTOOL_USE_PYGCCXML(0)                                                        */
 /* BINDTOOL_HEADER_FILE(sdrdevice_source.h)                                        */
-/* BINDTOOL_HEADER_FILE_HASH(94d4a4623f512b539251e1bc3baf61ef)                     */
+/* BINDTOOL_HEADER_FILE_HASH(a826788d3b9d6b39aa49f6df8eff4c0d)                     */
 /***********************************************************************************/
 
 #include <pybind11/complex.h>
@@ -79,6 +79,12 @@ void bind_sdrdevice_source(py::module& m)
              &sdrdevice_source::set_gain_generic,
              py::arg("gain_dB"),
              D(sdrdevice_source, set_gain_generic))
+
+
+        .def("set_nco_frequency",
+             &sdrdevice_source::set_nco_frequency,
+             py::arg("frequency_offset_Hz"),
+             D(sdrdevice_source, set_nco_frequency))
 
         ;
 }

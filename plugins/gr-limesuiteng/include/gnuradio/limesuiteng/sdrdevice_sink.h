@@ -80,6 +80,15 @@ public:
      * @return  value that was set
      */
     virtual double set_gain_generic(double gain_dB) = 0;
+
+    /**
+     * Set Numerically controlled oscilator frequency
+     *
+     * @param   frequency_offset_Hz Frequency offset, negative to downconvert, positive to
+     * upconvert
+     * @return  value that was set
+     */
+    virtual double set_nco_frequency(double frequency_offset_Hz) = 0;
 };
 
 } // namespace limesuiteng

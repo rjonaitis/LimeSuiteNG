@@ -58,6 +58,13 @@ parameters:
   category: General
   hide: ${'part' if rf_oversampling.value==0 else 'none'}
 
+- id: nco_offset
+  label: NCO offset
+  dtype: float
+  default: 0
+  category: General
+  hide: ${'part' if nco_offset==0 else 'none'}
+
 - id: lpf
   label: Low Pass Filter
   dtype: float
@@ -102,6 +109,7 @@ templates:
     self.${id}.set_lpf_bandwidth(${lpf})
     self.${id}.set_antenna(${antenna})
     self.${id}.set_gain_generic(${gain_generic})
+    self.${id}.set_nco_frequency(${nco_offset})
 
   callbacks:
   - set_config_file(${custom_config_file})
@@ -109,3 +117,4 @@ templates:
   - set_lpf_bandwidth(${lpf})
   - set_antenna(${antenna})
   - set_gain_generic(${gain_generic})
+  - set_nco_frequency(${nco_offset})
