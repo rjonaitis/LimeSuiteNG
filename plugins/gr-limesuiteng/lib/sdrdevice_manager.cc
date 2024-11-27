@@ -53,7 +53,14 @@ sdrdevice_manager::sdrdevice_manager() : _logger("SDRDeviceManager")
     // lime::registerLogHandler(lime::cli::LogCallback);
 }
 
-sdrdevice_manager::~sdrdevice_manager() { _logger.debug("sdrdevice_manager destroyed"); }
+sdrdevice_manager::~sdrdevice_manager()
+{
+    _logger.debug("sdrdevice_manager destroyed");
+    for (auto& ctx : m_contexts) {
+        ctx->stream.reset();
+        lime::DeviceRegistry::freeDevice(ctx->device.release());
+    }
+}
 
 bool sdrdevice_manager::GetDeviceFullHandle(const std::string_view hintArguments,
                                             lime::DeviceHandle& handleOutput)

@@ -53,6 +53,7 @@ public:
     double set_nco_frequency(double frequency_offset_Hz) override;
 
 private:
+    void ReleaseResources();
     uint32_t chipIndex;
     std::shared_ptr<sdrdevice_manager> devManager;
     std::shared_ptr<sdrdevice_context> devContext;

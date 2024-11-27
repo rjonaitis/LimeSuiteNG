@@ -116,7 +116,18 @@ sdrdevice_source_impl::sdrdevice_source_impl(const std::string& alias,
     }
 }
 
-sdrdevice_source_impl::~sdrdevice_source_impl() { GR_LOG_DEBUG(d_logger, __func__); }
+sdrdevice_source_impl::~sdrdevice_source_impl()
+{
+    GR_LOG_DEBUG(d_logger, __func__);
+    ReleaseResources();
+}
+
+void sdrdevice_source_impl::ReleaseResources()
+{
+    GR_LOG_DEBUG(d_logger, __func__);
+    devContext.reset();
+    devManager.reset();
+}
 
 bool sdrdevice_source_impl::start()
 {
@@ -175,6 +186,7 @@ bool sdrdevice_source_impl::stop()
         (devContext->sourceBlockCounter == 0 && devContext->sinkBlockCounter == 0);
 
     if (doStop && devContext->stream) {
+        GR_LOG_DEBUG(d_logger, "RFStream Stop");
         devContext->stream->Stop();
         devContext->stream->Teardown();
         devContext->stream.reset();
@@ -182,7 +194,8 @@ bool sdrdevice_source_impl::stop()
 
     // GRC does not call destructor, so cleanup resources on stop() to ensure proper
     // resources destruction order
-    this->~sdrdevice_source_impl();
+    ReleaseResources();
+    GR_LOG_DEBUG(d_logger, "st done");
     return true;
 }
 
@@ -210,13 +223,20 @@ int sdrdevice_source_impl::work(int noutput_items,
 
 void sdrdevice_source_impl::set_config_file(const std::string& file_path)
 {
+    if (!devContext)
+        return;
+
     GR_LOG_INFO(d_logger, fmt::format("{:s} {:s}", __func__, file_path));
     devContext->customBaseConfigFilepath = file_path;
 }
 
 double sdrdevice_source_impl::set_lo_frequency(double frequencyHz)
 {
+    if (!devContext)
+        return frequencyHz;
+
     GR_LOG_INFO(d_logger, fmt::format("{:s} {:f}", __func__, frequencyHz));
+
     for (const int ch : devContext->streamCfg.channels.at(direction)) {
         if (devContext->stream)
             devContext->device->SetFrequency(chipIndex, direction, ch, frequencyHz);
@@ -228,6 +248,9 @@ double sdrdevice_source_impl::set_lo_frequency(double frequencyHz)
 
 double sdrdevice_source_impl::set_lpf_bandwidth(double bandwidthHz)
 {
+    if (!devContext)
+        return bandwidthHz;
+
     GR_LOG_INFO(d_logger, fmt::format("{:s} {:f}", __func__, bandwidthHz));
     for (const int ch : devContext->streamCfg.channels.at(direction)) {
         if (devContext->stream)
@@ -240,6 +263,9 @@ double sdrdevice_source_impl::set_lpf_bandwidth(double bandwidthHz)
 
 bool sdrdevice_source_impl::set_antenna(const std::string& antenna_name)
 {
+    if (!devContext)
+        return false;
+
     GR_LOG_INFO(d_logger, fmt::format("{:s} {:s}", __func__, antenna_name));
     const auto& antennas =
         devContext->device->GetDescriptor().rfSOC.at(chipIndex).pathNames.at(direction);
@@ -266,6 +292,9 @@ bool sdrdevice_source_impl::set_antenna(const std::string& antenna_name)
 
 double sdrdevice_source_impl::set_gain_generic(double gain_dB)
 {
+    if (!devContext)
+        return gain_dB;
+
     GR_LOG_INFO(d_logger, fmt::format("{:s} {:f}", __func__, gain_dB));
     const RFSOCDescriptor& desc = devContext->device->GetDescriptor().rfSOC.at(chipIndex);
 
@@ -295,7 +324,13 @@ double sdrdevice_source_impl::set_gain_generic(double gain_dB)
 
 double sdrdevice_source_impl::set_nco_frequency(double frequency_offset_Hz)
 {
+    if (!devContext)
+        return frequency_offset_Hz;
+
     GR_LOG_INFO(d_logger, fmt::format("{:s} {:f}", __func__, frequency_offset_Hz));
+    if (!devContext)
+        return frequency_offset_Hz;
+
     for (const int ch : devContext->streamCfg.channels.at(direction)) {
         if (devContext->stream)
             devContext->device->SetNCOFrequency(
