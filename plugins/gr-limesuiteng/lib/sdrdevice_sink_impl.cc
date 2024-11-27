@@ -80,7 +80,8 @@ sdrdevice_sink_impl::sdrdevice_sink_impl(const std::string& alias,
                      gr::io_signature::make(
                          1, channelIndexes.size(), GetDataFormatTypeSize(dataFormat)),
                      gr::io_signature::make(0, 0, 0)),
-      chipIndex(chipIndex)
+      chipIndex(chipIndex),
+      autoAntenna(true)
 {
     devManager = sdrdevice_manager::GetSingleton();
     assert(devManager);
@@ -238,6 +239,9 @@ double sdrdevice_sink_impl::set_lo_frequency(double frequencyHz)
             devContext->device->SetFrequency(chipIndex, direction, ch, frequencyHz);
         else
             devContext->deviceConfig.channel[ch].tx.centerFrequency = frequencyHz;
+
+        if (autoAntenna)
+            set_antenna("auto");
     }
     return frequencyHz;
 }
@@ -257,6 +261,29 @@ double sdrdevice_sink_impl::set_lpf_bandwidth(double bandwidthHz)
     return bandwidthHz;
 }
 
+static std::string
+GetAntennaForFrequency(double frequencyHz,
+                       const std::vector<std::string>& options,
+                       const std::unordered_map<std::string, lime::Range<double>>& ranges)
+{
+    std::string name = "auto_failed";
+    float deviation = 1e20;
+    for (const auto& name_range : ranges) {
+        const auto& range = name_range.second;
+
+        if (std::find(options.begin(), options.end(), name_range.first) == options.end())
+            continue;
+
+        const double mid = range.min + (range.max - range.min) / 2;
+        const double d = std::abs(mid - frequencyHz);
+        if (d <= deviation) {
+            name = name_range.first;
+            deviation = d;
+        }
+    }
+    return name;
+}
+
 bool sdrdevice_sink_impl::set_antenna(const std::string& antenna_name)
 {
     if (!devContext)
@@ -265,8 +292,27 @@ bool sdrdevice_sink_impl::set_antenna(const std::string& antenna_name)
     GR_LOG_INFO(d_logger, fmt::format("{:s} {:s}", __func__, antenna_name));
     const auto& antennas =
         devContext->device->GetDescriptor().rfSOC.at(chipIndex).pathNames.at(direction);
+    auto antennaFind = antennas.begin();
 
-    const auto& antennaFind = std::find(antennas.begin(), antennas.end(), antenna_name);
+    autoAntenna = antenna_name.empty() || (antenna_name == "auto");
+
+    if (autoAntenna) {
+        double freq;
+        int ch = devContext->streamCfg.channels.at(direction).front();
+        if (devContext->stream)
+            freq = devContext->device->GetFrequency(chipIndex, direction, ch);
+        else
+            freq = devContext->deviceConfig.channel[ch].tx.centerFrequency;
+        const std::string bestAntenna = GetAntennaForFrequency(
+            freq,
+            antennas,
+            devContext->device->GetDescriptor().rfSOC.at(chipIndex).antennaRange.at(
+                direction));
+        GR_LOG_INFO(d_logger, fmt::format("auto selected antenna: {:s}", bestAntenna));
+        antennaFind = std::find(antennas.begin(), antennas.end(), bestAntenna);
+    } else
+        antennaFind = std::find(antennas.begin(), antennas.end(), antenna_name);
+
     if (antennaFind == antennas.end()) {
         std::stringstream ss;
         ss << "Antenna " << antenna_name << " not found. Available:" << std::endl;

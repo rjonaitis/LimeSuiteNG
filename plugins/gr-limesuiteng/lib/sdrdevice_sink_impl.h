@@ -58,6 +58,7 @@ private:
     std::shared_ptr<sdrdevice_manager> devManager;
     std::shared_ptr<sdrdevice_context> devContext;
     static constexpr lime::TRXDir direction{ lime::TRXDir::Tx };
+    bool autoAntenna;
 };
 
 } // namespace limesuiteng
