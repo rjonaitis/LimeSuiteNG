@@ -22,6 +22,8 @@
 #include "protocols/LMSBoards.h"
 #include "protocols/LMS64CProtocol.h"
 
+#include "utilities/toString.h"
+
 #include "DeviceTreeNode.h"
 #include "streaming/TRXLooper.h"
 
@@ -193,6 +195,8 @@ LimeSDR_Mini::LimeSDR_Mini(std::shared_ptr<IComms> spiLMS,
         chip->SetReferenceClk_SX(TRXDir::Rx, refClk);
         mLMSChips.push_back(std::move(chip));
     }
+
+    descriptor.memoryDevices[ToString(eMemoryDevice::FPGA_FLASH)] = std::make_shared<DataStorage>(this, eMemoryDevice::FPGA_FLASH);
 
     descriptor.spiSlaveIds = { { "LMS7002M"s, limesdrmini::SPI_LMS7002M }, { "FPGA"s, limesdrmini::SPI_FPGA } };
 
@@ -535,6 +539,59 @@ OpStatus LimeSDR_Mini::CustomParameterWrite(const std::vector<CustomParameterIO>
 OpStatus LimeSDR_Mini::CustomParameterRead(std::vector<CustomParameterIO>& parameters)
 {
     return mfpgaPort->CustomParameterRead(parameters);
+}
+
+OpStatus LimeSDR_Mini::UploadMemory(
+    eMemoryDevice device, uint8_t moduleIndex, const char* data, size_t length, UploadMemoryCallback callback)
+{
+    int progMode;
+    LMS64CProtocol::ALTERA_FPGA_GW_WR_targets target = LMS64CProtocol::ALTERA_FPGA_GW_WR_targets::FPGA;
+
+    switch (device)
+    {
+    case eMemoryDevice::FPGA_FLASH:
+        progMode = 1;
+        break;
+    default:
+        return OpStatus::InvalidValue;
+    }
+
+    const char* data_src = data;
+
+    // LimeSDR-Mini v1.X, needs data modification
+    std::vector<char> v1_buffer;
+
+    FPGA::GatewareInfo gw = mFPGA->GetGatewareInfo();
+    if (gw.hardwareVersion < 3) // LimeSDR-Mini v1.X
+    {
+        if (gw.version != 0)
+        {
+            // boot from flash
+            mfpgaPort->ProgramWrite(nullptr, 0, 2, static_cast<int>(target), nullptr);
+            std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+        }
+
+        const int sizeUFM = 0x8000;
+        const int sizeCFM0 = 0x42000;
+        const int startUFM = 0x1000;
+        const int startCFM0 = 0x4B000;
+
+        if (length != startCFM0 + sizeCFM0)
+            return ReportError(OpStatus::Error, "LimeSDR_Mini: Invalid image file");
+
+        v1_buffer.resize(sizeUFM + sizeCFM0);
+        memcpy(v1_buffer.data(), data + startUFM, sizeUFM);
+        memcpy(v1_buffer.data() + sizeUFM, data + startCFM0, sizeCFM0);
+
+        data_src = v1_buffer.data();
+    }
+
+    OpStatus status = mfpgaPort->ProgramWrite(data_src, length, progMode, static_cast<int>(target), callback);
+    if (status != OpStatus::Success)
+        return status;
+
+    progMode = 2; // boot from FLASH
+    return mfpgaPort->ProgramWrite(nullptr, 0, progMode, static_cast<int>(target), nullptr);
 }
 
 void LimeSDR_Mini::SetSerialNumber(const std::string& number)
