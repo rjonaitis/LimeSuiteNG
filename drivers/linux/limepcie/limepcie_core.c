@@ -54,7 +54,6 @@ static int total_uart_counter = 0;
 
 MODULE_INFO(version, LIMEPCIE_VERSION);
 MODULE_INFO(author, "Lime Microsystems");
-MODULE_SOFTDEP("pre: limeuart");
 
 #define MAX_DMA_BUFFER_COUNT 256
 #define MAX_DMA_CHANNEL_COUNT 16
@@ -1448,16 +1447,16 @@ static int limepcie_device_init(struct limepcie_device *myDevice, struct pci_dev
         }
         tty_res->start = (resource_size_t)myDevice->bar0_addr + CSR_PCIE_UART0_BASE + uart_csr_offset * myDevice->uart_count;
         tty_res->flags = IORESOURCE_REG;
-        char *uname = devm_kzalloc(sysDev, 64, GFP_KERNEL);
-        snprintf(uname, 64, "limepcie%i/uart%i", gDeviceCounter, myDevice->uart_count);
-        tty_res->name = uname;
+        char *devSymlink = devm_kzalloc(sysDev, 64, GFP_KERNEL);
+        snprintf(devSymlink, 64, "limepcie%i/uart%i", gDeviceCounter, myDevice->uart_count);
+        tty_res->name = devSymlink;
         struct platform_device *uart = platform_device_register_simple("limeuart", total_uart_counter, tty_res, 1);
         if (IS_ERR(uart))
         {
             dev_err(sysDev, "Failed to register UART%i\n", myDevice->uart_count);
             break;
         }
-        dev_info(sysDev, "UART%i at %llx", myDevice->uart_count, tty_res->start);
+        // dev_dbg(sysDev, "UART%i at %llx", myDevice->uart_count, tty_res->start);
         ++total_uart_counter;
         myDevice->uart[myDevice->uart_count] = uart;
     }

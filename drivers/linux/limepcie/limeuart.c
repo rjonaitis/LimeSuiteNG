@@ -404,23 +404,23 @@ static int limeuart_remove(struct platform_device *pdev)
     return 0;
 }
 
-static ssize_t hardware_parent_show(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t driver_dev_symlink_name_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
     struct uart_port *port = dev_get_drvdata(dev);
     struct limeuart_port *luart = to_limeuart_port(port);
     return snprintf(buf, PAGE_SIZE, "%s\n", luart->suggestedSymlink);
 }
 
-static DEVICE_ATTR(hardware_parent, 0444, hardware_parent_show, NULL);
+static DEVICE_ATTR(driver_dev_symlink_name, 0444, driver_dev_symlink_name_show, NULL);
 
-static struct attribute *limeuart_dev_attrs[] = {&dev_attr_hardware_parent.attr, NULL};
+static struct attribute *limeuart_dev_attrs[] = {&dev_attr_driver_dev_symlink_name.attr, NULL};
 
-static struct attribute_group tty_dev_attr_group = {
+static struct attribute_group dev_attr_group = {
     .attrs = limeuart_dev_attrs,
 };
 
 static const struct attribute_group *dev_groups[] = {
-    &tty_dev_attr_group,
+    &dev_attr_group,
     NULL,
 };
 
