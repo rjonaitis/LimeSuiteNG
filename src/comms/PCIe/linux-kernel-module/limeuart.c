@@ -1,5 +1,5 @@
 
-//#define DEBUG
+// #define DEBUG
 
 #include <linux/console.h>
 #include <linux/module.h>
@@ -24,6 +24,8 @@ MODULE_AUTHOR("Lime Microsystems");
 MODULE_DESCRIPTION("LimeUART serial driver");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("platform: limeuart");
+
+#define DRIVER_NAME "limeuart"
 
 static struct resource *local_platform_get_mem_or_io(struct platform_device *dev, unsigned int num)
 {
@@ -67,7 +69,8 @@ static struct resource *local_platform_get_mem_or_io(struct platform_device *dev
 struct limeuart_port {
     struct uart_port port;
     struct timer_list timer;
-    u32 id;
+    u32 index;
+    char suggestedSymlink[128];
 };
 
 #define to_limeuart_port(port) container_of(port, struct limeuart_port, port)
@@ -84,11 +87,11 @@ static struct console limeuart_console;
 
 static struct uart_driver limeuart_driver = {
     .owner = THIS_MODULE,
-    .driver_name = "limeuart",
+    .driver_name = DRIVER_NAME,
     .dev_name = "ttyLimeUART",
     .major = 0,
     .minor = 0,
-    .nr = CONFIG_SERIAL_LIMEUART_MAX_PORTS,
+    .nr = CONFIG_SERIAL_LIMEUART_MAX_PORTS, // maximum number of UART ports
 #ifdef CONFIG_SERIAL_LIMEUART_CONSOLE
     .cons = &limeuart_console,
 #endif
@@ -249,7 +252,7 @@ static void limeuart_set_termios(struct uart_port *port,
 
 static const char *limeuart_type(struct uart_port *port)
 {
-    return "limeuart";
+    return DRIVER_NAME;
 }
 
 static void limeuart_release_port(struct uart_port *port)
@@ -301,75 +304,87 @@ static const struct uart_ops limeuart_ops = {
     .verify_port = limeuart_verify_port,
 };
 
-static int limeuart_probe(struct platform_device *pdev)
+static int limeuart_uart_port_init(
+    struct uart_port *uport, struct device *parent, struct resource *res, int line_id, int ctrl_id, int port_id)
 {
-    dev_dbg(&pdev->dev, "%s\n", __func__);
-    struct limeuart_port *uart;
-    struct uart_port *port;
-    struct xa_limit limit;
-    struct resource *res;
-    int dev_id, ret;
-
-    /* look for aliases; auto-enumerate for free index if not found */
-    dev_id = of_alias_get_id(pdev->dev.of_node, "serial");
-    if (dev_id < 0)
-        limit = XA_LIMIT(0, CONFIG_SERIAL_LIMEUART_MAX_PORTS);
-    else
-        limit = XA_LIMIT(dev_id, dev_id);
-
-    uart = devm_kzalloc(&pdev->dev, sizeof(struct limeuart_port), GFP_KERNEL);
-    if (!uart)
-        return -ENOMEM;
-
-    ret = xa_alloc(&limeuart_array, &dev_id, uart, limit, GFP_KERNEL);
-    if (ret)
-        return ret;
-
-    uart->id = dev_id;
-    port = &uart->port;
-
-    /* get membase */
-    res = local_platform_get_mem_or_io(pdev, 0);
-    if (!res)
-    {
-        ret = -EINVAL;
-        goto err_erase_id;
-    }
-
     if (res->flags & IORESOURCE_REG)
-        port->membase = (unsigned char __iomem *)res->start;
+        uport->membase = (unsigned char __iomem *)res->start;
     else
     {
-        port->membase = devm_ioremap_resource(&pdev->dev, res);
-        if (IS_ERR(port->membase))
+        uport->membase = devm_ioremap_resource(parent, res);
+        if (IS_ERR(uport->membase))
         {
-            ret = PTR_ERR(port->membase);
-            goto err_erase_id;
+            dev_dbg(parent, "Failed to devm_ioremap_resource\n");
+            return PTR_ERR(uport->membase);
         }
     }
 
+    //uport->attr_group = &tty_dev_attr_group; // gets copied to tty_groups
+
     /* values not from device tree */
-    port->dev = &pdev->dev;
-    port->iotype = UPIO_MEM;
-    port->flags = UPF_BOOT_AUTOCONF;
-    port->ops = &limeuart_ops;
-    port->regshift = 2;
-    port->fifosize = 16;
-    port->iobase = 1;
-    port->type = PORT_UNKNOWN;
-    port->line = dev_id;
-    spin_lock_init(&port->lock);
+    uport->dev = parent; // serial port physical parent device
+    uport->iotype = UPIO_MEM;
+    uport->flags = UPF_BOOT_AUTOCONF;
+    uport->ops = &limeuart_ops;
+    uport->regshift = 2;
+    uport->fifosize = 16;
+    uport->iobase = 1;
+    uport->type = PORT_UNKNOWN;
 
-    platform_set_drvdata(pdev, port);
+    // serial-base kernel naming: name.line:ctrl_id.port_id
+    uport->line = line_id;
+    uport->ctrl_id = ctrl_id; // optional
+    uport->port_id = port_id; // optional
 
-    ret = uart_add_one_port(&limeuart_driver, &uart->port);
-    if (ret)
+    // set by uart_add_one_port()
+    // uport->name to ${uart_driver.dev_name}.${line_id}
+    // uport->minor
+
+    spin_lock_init(&uport->lock);
+    return 0;
+}
+
+static int gDeviceCounter = 0;
+static int limeuart_probe(struct platform_device *pdev)
+{
+    int ret;
+    dev_dbg(&pdev->dev, "%s\n", __func__);
+
+    struct resource *res = local_platform_get_mem_or_io(pdev, 0);
+    if (!res)
+        return -ENODEV;
+    dev_dbg(&pdev->dev, "resource %s @ %llx\n", res->name, res->start);
+
+    struct limeuart_port *luart = devm_kzalloc(&pdev->dev, sizeof(struct limeuart_port), GFP_KERNEL);
+    if (!luart)
+    {
+        dev_dbg(&pdev->dev, "Failed to allocate memroy\n");
+        return -ENOMEM;
+    }
+
+    struct xa_limit limit = XA_LIMIT(0, CONFIG_SERIAL_LIMEUART_MAX_PORTS);
+    if ((ret = xa_alloc(&limeuart_array, &luart->index, luart, limit, GFP_KERNEL)))
+    {
+        dev_dbg(&pdev->dev, "Failed xa alloc\n");
         goto err_erase_id;
+    }
+
+    snprintf(luart->suggestedSymlink, sizeof(luart->suggestedSymlink), "%s", res->name);
+    int line_id = luart->index;
+    int ctrl_id = 0;
+    int port_id = 0;
+    if ((ret = limeuart_uart_port_init(&luart->port, &pdev->dev, res, line_id, ctrl_id, port_id)))
+        return ret;
+
+    if ((ret = uart_add_one_port(&limeuart_driver, &luart->port)))
+        goto err_erase_id;
+
+    platform_set_drvdata(pdev, &luart->port);
 
     return 0;
 
 err_erase_id:
-    xa_erase(&limeuart_array, uart->id);
+    xa_erase(&limeuart_array, luart->index);
 
     return ret;
 }
@@ -378,13 +393,36 @@ static int limeuart_remove(struct platform_device *pdev)
 {
     dev_dbg(&pdev->dev, "%s\n", __func__);
     struct uart_port *port = platform_get_drvdata(pdev);
-    struct limeuart_port *uart = to_limeuart_port(port);
+    struct limeuart_port *luart = to_limeuart_port(port);
+
+    platform_set_drvdata(pdev, NULL);
 
     uart_remove_one_port(&limeuart_driver, port);
-    xa_erase(&limeuart_array, uart->id);
+
+    xa_erase(&limeuart_array, luart->index);
 
     return 0;
 }
+
+static ssize_t hardware_parent_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    struct uart_port *port = dev_get_drvdata(dev);
+    struct limeuart_port *luart = to_limeuart_port(port);
+    return snprintf(buf, PAGE_SIZE, "%s\n", luart->suggestedSymlink);
+}
+
+static DEVICE_ATTR(hardware_parent, 0444, hardware_parent_show, NULL);
+
+static struct attribute *limeuart_dev_attrs[] = {&dev_attr_hardware_parent.attr, NULL};
+
+static struct attribute_group tty_dev_attr_group = {
+    .attrs = limeuart_dev_attrs,
+};
+
+static const struct attribute_group *dev_groups[] = {
+    &tty_dev_attr_group,
+    NULL,
+};
 
 static const struct of_device_id limeuart_of_match[] = {{.compatible = "limepcie,limeuart"}, {}};
 MODULE_DEVICE_TABLE(of, limeuart_of_match);
@@ -394,8 +432,9 @@ static struct platform_driver limeuart_platform_driver = {
     .remove = limeuart_remove,
     .driver =
         {
-            .name = "limeuart",
+            .name = DRIVER_NAME,
             .of_match_table = limeuart_of_match,
+            .dev_groups = dev_groups,
         },
 };
 
@@ -478,14 +517,13 @@ static int __init early_limeuart_setup(struct earlycon_device *device, const cha
     return 0;
 }
 
-OF_EARLYCON_DECLARE(limeuart, "litex,limeuart", early_limeuart_setup);
+OF_EARLYCON_DECLARE(limeuart, "limepcie,limeuart", early_limeuart_setup);
 #endif /* CONFIG_SERIAL_LIMEUART_CONSOLE */
 
 static int __init limeuart_init(void)
 {
     pr_info("limeuart : module init v%s-g%s\n", LIMEPCIE_VERSION, LIMEPCIE_GIT_HASH);
     int res;
-
     res = uart_register_driver(&limeuart_driver);
     if (res)
         return res;
