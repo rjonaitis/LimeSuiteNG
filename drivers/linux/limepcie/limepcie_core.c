@@ -24,7 +24,14 @@
 #include "bsp/config.h"
 #include "boards.h"
 
+#include "limeuart.h"
+
+#define ADD_UART_INTERFACE 1
+#define MAX_UART_COUNT 8
+static int total_uart_counter = 0;
+
 #define LIMEMICROSYSTEMS_VENDOR_ID 0x2058
+#define LIMEMICROSYSTEMS_GENERIC_DEVICE_ID 0x0100
 
 #define XILINX_FPGA_VENDOR_ID 0x10EE
 #define XILINX_FPGA_DEVICE_ID 0x7022
@@ -47,6 +54,7 @@
 #include "version.h"
 
 MODULE_INFO(version, LIMEPCIE_VERSION);
+MODULE_INFO(githash, LIMEPCIE_GIT_HASH);
 MODULE_INFO(author, "Lime Microsystems");
 
 #define MAX_DMA_BUFFER_COUNT 256
@@ -122,6 +130,11 @@ struct limepcie_device {
     int minor_base;
     int irq_count;
     struct limepcie_data_cdev control_cdev; // non DMA channel for control packets
+
+#if ADD_UART_INTERFACE
+    struct platform_device *uart[MAX_UART_COUNT];
+    int uart_count;
+#endif
 };
 
 static int gDeviceCounter = 0;
@@ -1415,6 +1428,42 @@ static int limepcie_device_init(struct limepcie_device *myDevice, struct pci_dev
     if (ret < 0)
         return ret;
 
+#if ADD_UART_INTERFACE
+    uint8_t uart_counter = limepcie_readl(myDevice, CSR_CNTRL_NUART_ADDR);
+    dev_info(sysDev, "UART count: %i", uart_counter);
+
+    if (uart_counter == 0xFF) // in case device has no NUART register
+        uart_counter = 0;
+    if (uart_counter > MAX_UART_COUNT)
+        uart_counter = MAX_UART_COUNT;
+
+    const int uart_csr_offset = CSR_PCIE_UART1_BASE - CSR_PCIE_UART0_BASE;
+    for (myDevice->uart_count = 0; myDevice->uart_count < uart_counter; ++myDevice->uart_count)
+    {
+        struct resource *tty_res = NULL;
+        tty_res = devm_kzalloc(sysDev, sizeof(struct resource), GFP_KERNEL);
+        if (!tty_res)
+        {
+            dev_err(sysDev, "Failed to allocate memory for UART%i\n", myDevice->uart_count);
+            break;
+        }
+        tty_res->start = (resource_size_t)myDevice->bar0_addr + CSR_PCIE_UART0_BASE + uart_csr_offset * myDevice->uart_count;
+        tty_res->flags = IORESOURCE_REG;
+        char *devSymlink = devm_kzalloc(sysDev, 64, GFP_KERNEL);
+        snprintf(devSymlink, 64, "limepcie%i/uart%i", gDeviceCounter, myDevice->uart_count);
+        tty_res->name = devSymlink;
+        struct platform_device *uart = platform_device_register_simple("limeuart", total_uart_counter, tty_res, 1);
+        if (IS_ERR(uart))
+        {
+            dev_err(sysDev, "Failed to register UART%i\n", myDevice->uart_count);
+            break;
+        }
+        // dev_dbg(sysDev, "UART%i at %llx", myDevice->uart_count, tty_res->start);
+        ++total_uart_counter;
+        myDevice->uart[myDevice->uart_count] = uart;
+    }
+#endif
+
     ++gDeviceCounter;
 
     sema_init(&myDevice->control_semaphore, 1);
@@ -1438,6 +1487,12 @@ static void limepcie_device_destroy(struct limepcie_device *myDevice)
         limepcie_cdev_destroy(&myDevice->data_cdevs[i]);
 
     limepcie_cdev_destroy(&myDevice->control_cdev);
+
+#if ADD_UART_INTERFACE
+    for (int i = 0; i < myDevice->uart_count; ++i)
+        platform_device_unregister(myDevice->uart[i]);
+    myDevice->uart_count = 0;
+#endif
 }
 
 static int limepcie_pci_probe(struct pci_dev *pciContext, const struct pci_device_id *id)
@@ -1475,6 +1530,7 @@ static void limepcie_pci_device_remove(struct pci_dev *pciContext)
 static const struct pci_device_id limepcie_pci_ids[] = {{PCI_DEVICE(XILINX_FPGA_VENDOR_ID, XILINX_FPGA_DEVICE_ID)},
     {PCI_DEVICE(XILINX_FPGA_VENDOR_ID, XTRX_FPGA_DEVICE_ID)},
     {PCI_DEVICE(ALTERA_FPGA_VENDOR_ID, ALTERA_FPGA_DEVICE_ID)},
+    {PCI_DEVICE(LIMEMICROSYSTEMS_VENDOR_ID, LIMEMICROSYSTEMS_GENERIC_DEVICE_ID)},
     {0}};
 MODULE_DEVICE_TABLE(pci, limepcie_pci_ids);
 
@@ -1517,6 +1573,13 @@ static int __init limepcie_module_init(void)
         pr_err(" Error while registering PCI driver\n");
         goto fail_register;
     }
+
+    if ((ret = limeuart_init()))
+    {
+        pr_err(" limeuart failed to initialize, returned code %i\n", ret);
+        return ret;
+    }
+
     return 0;
 
 fail_register:
@@ -1529,6 +1592,8 @@ fail_create_class:
 
 static void __exit limepcie_module_exit(void)
 {
+    limeuart_exit();
+
     pci_unregister_driver(&limepcie_pci_driver);
     unregister_chrdev_region(limepcie_dev_t, LIMEPCIE_MINOR_COUNT);
     class_destroy(limepcie_class);
