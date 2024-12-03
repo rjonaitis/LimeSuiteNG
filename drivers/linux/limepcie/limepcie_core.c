@@ -24,6 +24,8 @@
 #include "bsp/config.h"
 #include "boards.h"
 
+#include "limeuart.h"
+
 #define ADD_UART_INTERFACE 1
 #define MAX_UART_COUNT 8
 static int total_uart_counter = 0;
@@ -1570,6 +1572,12 @@ static int __init limepcie_module_init(void)
         goto fail_register;
     }
 
+    if ((ret = limeuart_init()))
+    {
+        pr_err(" limeuart failed to initialize, returned code %i\n", ret);
+        return ret;
+    }
+
     return 0;
 
 fail_register:
@@ -1582,6 +1590,8 @@ fail_create_class:
 
 static void __exit limepcie_module_exit(void)
 {
+    limeuart_exit();
+
     pci_unregister_driver(&limepcie_pci_driver);
     unregister_chrdev_region(limepcie_dev_t, LIMEPCIE_MINOR_COUNT);
     class_destroy(limepcie_class);

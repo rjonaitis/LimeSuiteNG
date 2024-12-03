@@ -2,6 +2,10 @@
 ## Create LimeSuiteNG project
 ########################################################################
 cmake_minimum_required(VERSION 3.15)
+
+include(FeatureSummary)
+include(CMakeDependentOption)
+
 message(STATUS "cmake version: ${CMAKE_VERSION}")
 set(CMAKE_CONFIGURATION_TYPES
     "Debug;Release;RelWithDebInfo"
@@ -282,6 +286,15 @@ set(CPP_STL_PCH
 # externals
 #########################################################################
 add_subdirectory(external)
+
+#########################################################################
+# drivers
+#########################################################################
+option(BUILD_DRIVERS "Build device drivers" ON)
+add_feature_info("BUILD_DRIVERS" BUILD_DRIVERS "Build device drivers")
+if (BUILD_DRIVERS)
+    add_subdirectory(drivers)
+endif()
 
 ########################################################################
 ## lime suite ng build

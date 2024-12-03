@@ -18,12 +18,13 @@
 #include "litex.h"
 
 #include "version.h"
+#include "limeuart.h"
 
-MODULE_VERSION(LIMEPCIE_VERSION);
-MODULE_AUTHOR("Lime Microsystems");
-MODULE_DESCRIPTION("LimeUART serial driver");
-MODULE_LICENSE("GPL");
-MODULE_ALIAS("platform: limeuart");
+// MODULE_VERSION(LIMEPCIE_VERSION);
+// MODULE_AUTHOR("Lime Microsystems");
+// MODULE_DESCRIPTION("LimeUART serial driver");
+// MODULE_LICENSE("GPL");
+// MODULE_ALIAS("platform: limeuart");
 
 #define DRIVER_NAME "limeuart"
 
@@ -344,7 +345,6 @@ static int limeuart_uart_port_init(
     return 0;
 }
 
-static int gDeviceCounter = 0;
 static int limeuart_probe(struct platform_device *pdev)
 {
     int ret;
@@ -425,7 +425,7 @@ static const struct attribute_group *dev_groups[] = {
 };
 
 static const struct of_device_id limeuart_of_match[] = {{.compatible = "limepcie,limeuart"}, {}};
-MODULE_DEVICE_TABLE(of, limeuart_of_match);
+// MODULE_DEVICE_TABLE(of, limeuart_of_match);
 
 static struct platform_driver limeuart_platform_driver = {
     .probe = limeuart_probe,
@@ -520,7 +520,7 @@ static int __init early_limeuart_setup(struct earlycon_device *device, const cha
 OF_EARLYCON_DECLARE(limeuart, "limepcie,limeuart", early_limeuart_setup);
 #endif /* CONFIG_SERIAL_LIMEUART_CONSOLE */
 
-static int __init limeuart_init(void)
+int __init limeuart_init(void)
 {
     pr_info("limeuart : module init v%s-g%s\n", LIMEPCIE_VERSION, LIMEPCIE_GIT_HASH);
     int res;
@@ -538,12 +538,12 @@ static int __init limeuart_init(void)
     return 0;
 }
 
-static void __exit limeuart_exit(void)
+void __exit limeuart_exit(void)
 {
     pr_info("limeuart : module exit\n");
     platform_driver_unregister(&limeuart_platform_driver);
     uart_unregister_driver(&limeuart_driver);
 }
 
-module_init(limeuart_init);
-module_exit(limeuart_exit);
+// module_init(limeuart_init);
+// module_exit(limeuart_exit);

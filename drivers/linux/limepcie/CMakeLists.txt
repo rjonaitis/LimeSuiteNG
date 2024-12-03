@@ -62,9 +62,12 @@ add_kernel_module(
     GITHASH
     ${GITHASH}
     SOURCES
-    version.h
-    limepcie.c
     limepcie.h
+    limepcie_core.c
+    limeuart.h
+    limeuart.c
+    litex.h
+    version.h
     boards.h
     bsp/config.h
     bsp/csr.h
@@ -73,5 +76,3 @@ add_kernel_module(
     bsp/soc.h
     INCLUDES
     bsp)
-
-add_kernel_module(NAME limeuart VERSION ${DRIVER_VERSION} GITHASH ${GITHASH} SOURCES limeuart.c limeuart.h version.h litex.h)
