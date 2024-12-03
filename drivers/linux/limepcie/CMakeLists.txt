@@ -1,17 +1,8 @@
 cmake_minimum_required(VERSION 3.5)
 
-# Get the version number from header file
-file(READ version.in.h VERSION_HEADER_CONTENT)
-string(REGEX MATCH "LIMEPCIE_VERSION \"([0-9]+\\.[0-9]+\\.[0-9]+)\"" DRIVER_VERSION "${VERSION_HEADER_CONTENT}")
-
-if(NOT DRIVER_VERSION)
-    message(FATAL_ERROR "Failed to extract version number from version.h")
-endif(NOT DRIVER_VERSION)
-set(DRIVER_VERSION "${CMAKE_MATCH_1}")
-
 project(
-    limepcie-kernel
-    VERSION ${DRIVER_VERSION}
+    limepcie
+    VERSION 0.1.7
     LANGUAGES C)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_LIST_DIR}/cmake")
 include(add_kernel_module)
@@ -24,41 +15,24 @@ if(get_git_head_revision)
     if(GITHASH)
         string(SUBSTRING "${GITHASH}" 0 8 GITHASH)
     else(GITHASH)
-        set(GITHASH "123")
+        set(GITHASH "")
     endif(GITHASH)
 endif(get_git_head_revision)
 
 # configure the version.h header in-tree, as the DKMS shell scripts are not aware of cmake build directory, and they copy all sources into system directory
-configure_file(${CMAKE_CURRENT_LIST_DIR}/version.in.h ${CMAKE_CURRENT_LIST_DIR}/version.h @ONLY)
-
-cmake_dependent_option(INSTALL_KERNEL_MODULE "Install Linux LimePCIe kernel module" ON "LIMEPCIE_KERNEL_MODULE" ON)
-if(NOT INSTALL_KERNEL_MODULE)
-    return()
-endif()
+configure_file(version.h.in ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-src/version.h @ONLY)
+configure_file(dkms.conf.in ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-src/dkms.conf @ONLY)
 
 find_program(DKMS_EXECUTABLE NAMES dkms)
-if(NOT DKMS_EXECUTABLE)
-    set(IS_DKMS_NOT_PRESENT True)
-else()
-    # 0 means success, so it's inverted
-    execute_process(
-        COMMAND ${DKMS_EXECUTABLE} --version
-        RESULT_VARIABLE IS_DKMS_NOT_PRESENT
-        OUTPUT_QUIET)
-endif()
-
-cmake_dependent_option(USE_DKMS "Use DKMS when installing the kernel module" ON "NOT IS_DKMS_NOT_PRESENT" OFF)
-add_feature_info(DKMS USE_DKMS "DKMS support for lime PCIe kernel module")
-
-# If module is already loaded, unload it
-install(CODE "execute_process(COMMAND ${CMAKE_CURRENT_LIST_DIR}/uninstall-legacy-module.sh)")
+cmake_dependent_option(LIMEPCIE_DKMS "Use DKMS when installing the kernel module" ON "DKMS_EXECUTABLE" OFF)
+add_feature_info("LIMEPCIE_DKMS" LIMEPCIE_DKMS "Use DKMS system to build/install limepcie module")
 
 # sources must include header files with relative path, so they would be copied into system
 add_kernel_module(
     NAME
     limepcie
     VERSION
-    ${DRIVER_VERSION}
+    ${PROJECT_VERSION}
     GITHASH
     ${GITHASH}
     SOURCES
@@ -67,12 +41,19 @@ add_kernel_module(
     limeuart.h
     limeuart.c
     litex.h
-    version.h
     boards.h
     bsp/config.h
     bsp/csr.h
     bsp/flags.h
     bsp/mem.h
     bsp/soc.h
-    INCLUDES
-    bsp)
+    CONFIGURED_FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-src/version.h
+    ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-src/dkms.conf)
+
+option(LIMEPCIE_INSTALL "Install Linux LimePCIe kernel module" ON)
+if(NOT LIMEPCIE_INSTALL)
+    return()
+endif()
+
+install_kernel_module(NAME limepcie DKMS ${LIMEPCIE_DKMS})

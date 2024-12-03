@@ -53,6 +53,7 @@ static int total_uart_counter = 0;
 #include "version.h"
 
 MODULE_INFO(version, LIMEPCIE_VERSION);
+MODULE_INFO(githash, LIMEPCIE_GIT_HASH);
 MODULE_INFO(author, "Lime Microsystems");
 
 #define MAX_DMA_BUFFER_COUNT 256
