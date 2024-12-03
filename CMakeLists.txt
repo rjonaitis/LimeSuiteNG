@@ -292,7 +292,7 @@ add_subdirectory(external)
 #########################################################################
 option(BUILD_DRIVERS "Build device drivers" ON)
 add_feature_info("BUILD_DRIVERS" BUILD_DRIVERS "Build device drivers")
-if (BUILD_DRIVERS)
+if(BUILD_DRIVERS)
     add_subdirectory(drivers)
 endif()
 
