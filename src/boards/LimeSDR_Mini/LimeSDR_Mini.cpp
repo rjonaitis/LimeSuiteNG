@@ -22,16 +22,18 @@
 #include "protocols/LMSBoards.h"
 #include "protocols/LMS64CProtocol.h"
 
+#include "utilities/toString.h"
+
 #include "DeviceTreeNode.h"
 #include "streaming/TRXLooper.h"
 
 #include "FPGA_Mini.h"
 
-using namespace lime;
 using namespace lime::LMS64CProtocol;
 using namespace lime::LMS7002MCSR_Data;
 using namespace std::literals::string_literals;
 
+namespace lime {
 namespace limesdrmini {
 
 static const uint8_t SPI_LMS7002M = 0;
@@ -73,7 +75,7 @@ static const std::vector<std::pair<uint16_t, uint16_t>> lms7002defaultsOverrides
     { 0x0113, 0x03C2 },
     { 0x0114, 0x00D0 },
     { 0x0117, 0x1230 },
-    { 0x0119, 0x18D2 },
+    { 0x0119, 0x18CC },
     { 0x011C, 0x8941 },
     { 0x011D, 0x0000 },
     { 0x011E, 0x0740 },
@@ -122,7 +124,7 @@ static const std::vector<std::pair<uint16_t, uint16_t>> lms7002defaultsOverrides
     { 0x0113, 0x03C2 },
     { 0x0114, 0x00D0 },
     { 0x0117, 0x1230 },
-    { 0x0119, 0x18D2 },
+    { 0x0119, 0x18CC },
     { 0x011C, 0x8941 },
     { 0x011D, 0x0000 },
     { 0x011E, 0x0740 },
@@ -155,6 +157,7 @@ LimeSDR_Mini::LimeSDR_Mini(std::shared_ptr<IComms> spiLMS,
     , mlms7002mPort(spiLMS)
     , mfpgaPort(spiFPGA)
 {
+    mStreamers.resize(1);
     SDRDescriptor& descriptor = mDeviceDescriptor;
 
     LMS64CProtocol::FirmwareInfo fw{};
@@ -192,16 +195,8 @@ LimeSDR_Mini::LimeSDR_Mini(std::shared_ptr<IComms> spiLMS,
         chip->SetReferenceClk_SX(TRXDir::Rx, refClk);
         mLMSChips.push_back(std::move(chip));
     }
-    {
-        mStreamers.reserve(mLMSChips.size());
-        constexpr uint8_t rxBulkEndpoint = 0x83;
-        constexpr uint8_t txBulkEndpoint = 0x03;
-        auto rxdma = std::make_shared<USBDMAEmulation>(mStreamPort, rxBulkEndpoint, DataTransferDirection::DeviceToHost);
-        auto txdma = std::make_shared<USBDMAEmulation>(mStreamPort, txBulkEndpoint, DataTransferDirection::HostToDevice);
 
-        mStreamers.push_back(std::make_unique<TRXLooper>(
-            std::static_pointer_cast<IDMA>(rxdma), std::static_pointer_cast<IDMA>(txdma), mFPGA.get(), mLMSChips.at(0).get(), 0));
-    }
+    descriptor.memoryDevices[ToString(eMemoryDevice::FPGA_FLASH)] = std::make_shared<DataStorage>(this, eMemoryDevice::FPGA_FLASH);
 
     descriptor.spiSlaveIds = { { "LMS7002M"s, limesdrmini::SPI_LMS7002M }, { "FPGA"s, limesdrmini::SPI_FPGA } };
 
@@ -333,8 +328,8 @@ OpStatus LimeSDR_Mini::Init()
     // Otherwise if TxLPF is not configured, or CG_IAMP_TBB is not set explicitly to match it.
     // it can result in inconsistent Tx gain results.
     lms->SetActiveChannel(LMS7002M::Channel::ChA);
-    lms->SetTxLPF(20);
-    lms->SetRxLPF(20);
+    lms->SetTxLPF(20e6);
+    lms->SetRxLPF(20e6);
     // SetActiveChannel(Channel::ChB);
     // SetTxLPF(0);
     // SetRxLPF(0);
@@ -546,6 +541,59 @@ OpStatus LimeSDR_Mini::CustomParameterRead(std::vector<CustomParameterIO>& param
     return mfpgaPort->CustomParameterRead(parameters);
 }
 
+OpStatus LimeSDR_Mini::UploadMemory(
+    eMemoryDevice device, uint8_t moduleIndex, const char* data, size_t length, UploadMemoryCallback callback)
+{
+    int progMode;
+    LMS64CProtocol::ALTERA_FPGA_GW_WR_targets target = LMS64CProtocol::ALTERA_FPGA_GW_WR_targets::FPGA;
+
+    switch (device)
+    {
+    case eMemoryDevice::FPGA_FLASH:
+        progMode = 1;
+        break;
+    default:
+        return OpStatus::InvalidValue;
+    }
+
+    const char* data_src = data;
+
+    // LimeSDR-Mini v1.X, needs data modification
+    std::vector<char> v1_buffer;
+
+    FPGA::GatewareInfo gw = mFPGA->GetGatewareInfo();
+    if (gw.hardwareVersion < 3) // LimeSDR-Mini v1.X
+    {
+        if (gw.version != 0)
+        {
+            // boot from flash
+            mfpgaPort->ProgramWrite(nullptr, 0, 2, static_cast<int>(target), nullptr);
+            std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+        }
+
+        const int sizeUFM = 0x8000;
+        const int sizeCFM0 = 0x42000;
+        const int startUFM = 0x1000;
+        const int startCFM0 = 0x4B000;
+
+        if (length != startCFM0 + sizeCFM0)
+            return ReportError(OpStatus::Error, "LimeSDR_Mini: Invalid image file");
+
+        v1_buffer.resize(sizeUFM + sizeCFM0);
+        memcpy(v1_buffer.data(), data + startUFM, sizeUFM);
+        memcpy(v1_buffer.data() + sizeUFM, data + startCFM0, sizeCFM0);
+
+        data_src = v1_buffer.data();
+    }
+
+    OpStatus status = mfpgaPort->ProgramWrite(data_src, length, progMode, static_cast<int>(target), callback);
+    if (status != OpStatus::Success)
+        return status;
+
+    progMode = 2; // boot from FLASH
+    return mfpgaPort->ProgramWrite(nullptr, 0, progMode, static_cast<int>(target), nullptr);
+}
+
 void LimeSDR_Mini::SetSerialNumber(const std::string& number)
 {
 
@@ -608,3 +656,25 @@ OpStatus LimeSDR_Mini::SetAntenna(uint8_t moduleIndex, TRXDir trx, uint8_t chann
     else
         return status;
 }
+
+std::unique_ptr<lime::RFStream> LimeSDR_Mini::StreamCreate(const StreamConfig& config, uint8_t moduleIndex)
+{
+    constexpr uint8_t rxBulkEndpoint = 0x83;
+    constexpr uint8_t txBulkEndpoint = 0x03;
+    auto rxdma = std::make_shared<USBDMAEmulation>(mStreamPort, rxBulkEndpoint, DataTransferDirection::DeviceToHost);
+    auto txdma = std::make_shared<USBDMAEmulation>(mStreamPort, txBulkEndpoint, DataTransferDirection::HostToDevice);
+
+    std::unique_ptr<TRXLooper> streamer = std::make_unique<TRXLooper>(
+        std::static_pointer_cast<IDMA>(rxdma), std::static_pointer_cast<IDMA>(txdma), mFPGA.get(), mLMSChips.at(0).get(), 0);
+    if (!streamer)
+        return streamer;
+
+    if (mCallback_logMessage)
+        streamer->SetMessageLogCallback(mCallback_logMessage);
+    OpStatus status = streamer->Setup(config);
+    if (status != OpStatus::Success)
+        return std::unique_ptr<RFStream>(nullptr);
+    return streamer;
+}
+
+} // namespace lime

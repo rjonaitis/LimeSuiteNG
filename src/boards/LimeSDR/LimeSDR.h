@@ -49,6 +49,8 @@ class LimeSDR : public LMS7002M_SDRDevice
     OpStatus MemoryWrite(std::shared_ptr<DataStorage> storage, Region region, const void* data) override;
     OpStatus MemoryRead(std::shared_ptr<DataStorage> storage, Region region, void* data) override;
 
+    std::unique_ptr<lime::RFStream> StreamCreate(const StreamConfig& config, uint8_t moduleIndex) override;
+
   private:
     SDRDescriptor GetDeviceInfo();
     void ResetUSBFIFO();

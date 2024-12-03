@@ -981,12 +981,12 @@ OpStatus FPGA::OEMTestSetup(TestID testId, double timeout)
 
 OpStatus FPGA::ConfigureSamplesStream(uint32_t channelsEnableMask, lime::DataFormat samplesFormat, bool sisoddr, bool trxiqpulse)
 {
-    int channelCount = 0;
-    for (int i = 0; i < 8; ++i)
-    {
-        if (channelsEnableMask & (1 << i))
-            ++channelCount;
-    }
+    // int channelCount = 0;
+    // for (int i = 0; i < 8; ++i)
+    // {
+    //     if (channelsEnableMask & (1 << i))
+    //         ++channelCount;
+    // }
     bool MIMO_EN = 1; // channelCount > 1;
     bool TRXIQ_PULSE_ON = trxiqpulse;
     bool DDR_EN = 0;

@@ -188,9 +188,17 @@ OpStatus TRXLooper::Setup(const StreamConfig& cfg)
     return OpStatus::Success;
 }
 
+const StreamConfig& TRXLooper::GetConfig() const
+{
+    return mConfig;
+}
+
 /// @brief Starts the stream of this looper.
 OpStatus TRXLooper::Start()
 {
+    if (mStreamEnabled)
+        return OpStatus::Success;
+
     OpStatus status = fpga->SelectModule(chipId);
     if (status != OpStatus::Success)
         return status;
@@ -205,6 +213,11 @@ OpStatus TRXLooper::Start()
         streamActive.notify_all();
     }
     return OpStatus::Success;
+}
+
+OpStatus TRXLooper::StageStart()
+{
+    return OpStatus::NotImplemented;
 }
 
 /// @brief Stops the stream and cleans up all the memory.
@@ -766,19 +779,20 @@ uint32_t TRXLooper::StreamRxTemplate(T* const* dest, uint32_t count, StreamMeta*
 /// @param count The amount of samples to receive.
 /// @param meta The metadata of the packets of the stream.
 /// @return The amount of samples received.
-uint32_t TRXLooper::StreamRx(complex32f_t* const* samples, uint32_t count, StreamMeta* meta, chrono::microseconds timeout)
+uint32_t TRXLooper::StreamRx(
+    lime::complex32f_t* const* samples, uint32_t count, StreamMeta* meta, std::chrono::microseconds timeout)
 {
     return StreamRxTemplate<complex32f_t>(samples, count, meta, timeout);
 }
 
 /// @copydoc TRXLooper::StreamRx()
-uint32_t TRXLooper::StreamRx(complex16_t* const* samples, uint32_t count, StreamMeta* meta, chrono::microseconds timeout)
+uint32_t TRXLooper::StreamRx(lime::complex16_t* const* samples, uint32_t count, StreamMeta* meta, std::chrono::microseconds timeout)
 {
     return StreamRxTemplate<complex16_t>(samples, count, meta, timeout);
 }
 
 /// @copydoc TRXLooper::StreamRx()
-uint32_t TRXLooper::StreamRx(lime::complex12_t* const* samples, uint32_t count, StreamMeta* meta, chrono::microseconds timeout)
+uint32_t TRXLooper::StreamRx(lime::complex12_t* const* samples, uint32_t count, StreamMeta* meta, std::chrono::microseconds timeout)
 {
     return StreamRxTemplate<complex12_t>(samples, count, meta, timeout);
 }
@@ -867,7 +881,7 @@ OpStatus TRXLooper::TxSetup()
     const std::string name = "MemPool_Tx"s + std::to_string(chipId);
     const int upperAllocationLimit =
         sizeof(complex32f_t) * mTx.packetsToBatch * mTx.samplesInPkt * chCount + SamplesPacketType::headerSize;
-    mTx.memPool = std::make_unique<MemoryPool>(1024, upperAllocationLimit, 4096, name);
+    mTx.memPool = std::make_unique<MemoryPool>(1024, upperAllocationLimit, 8, name);
 
     mTx.terminate.store(false, std::memory_order_relaxed);
     mTx.terminateWorker.store(false, std::memory_order_relaxed);
@@ -1273,50 +1287,46 @@ uint32_t TRXLooper::StreamTxTemplate(const T* const* samples, uint32_t count, co
 /// @param meta The metadata of the packets of the stream.
 /// @return The amount of samples transmitted.
 uint32_t TRXLooper::StreamTx(
-    const lime::complex32f_t* const* samples, uint32_t count, const StreamMeta* meta, chrono::microseconds timeout)
+    const lime::complex32f_t* const* samples, uint32_t count, const StreamMeta* meta, std::chrono::microseconds timeout)
 {
     return StreamTxTemplate(samples, count, meta, timeout);
 }
 
 /// @copydoc TRXLooper::StreamTx()
 uint32_t TRXLooper::StreamTx(
-    const lime::complex16_t* const* samples, uint32_t count, const StreamMeta* meta, chrono::microseconds timeout)
+    const lime::complex16_t* const* samples, uint32_t count, const StreamMeta* meta, std::chrono::microseconds timeout)
 {
     return StreamTxTemplate(samples, count, meta, timeout);
 }
 
 /// @copydoc TRXLooper::StreamTx()
 uint32_t TRXLooper::StreamTx(
-    const lime::complex12_t* const* samples, uint32_t count, const StreamMeta* meta, chrono::microseconds timeout)
+    const lime::complex12_t* const* samples, uint32_t count, const StreamMeta* meta, std::chrono::microseconds timeout)
 {
     return StreamTxTemplate(samples, count, meta, timeout);
 }
 
-/// @brief Gets statistics from a specified transfer direction.
-/// @param dir The direction of which to get the statistics.
-/// @return The statistics of the transfers.
-StreamStats TRXLooper::GetStats(TRXDir dir) const
+/// @brief Gets Rx/Tx data transfer statistics.
+/// @param rxStats Pointer to rx statistics structure, (Optional, can be NULL)
+/// @param txStats Pointer to rx statistics structure, (Optional, can be NULL)
+void TRXLooper::StreamStatus(StreamStats* rxStats, StreamStats* txStats)
 {
-    StreamStats stats;
-
-    if (dir == TRXDir::Tx)
+    if (txStats)
     {
-        stats = mTx.stats;
+        *txStats = mTx.stats;
         if (mTx.fifo)
-            stats.FIFO = { mTx.fifo->max_size(), mTx.fifo->size() };
+            txStats->FIFO = { mTx.fifo->max_size(), mTx.fifo->size() };
         else
-            stats.FIFO = { 1, 0 };
+            txStats->FIFO = { 1, 0 };
     }
-    else
+    if (rxStats)
     {
-        stats = mRx.stats;
+        *rxStats = mRx.stats;
         if (mRx.fifo)
-            stats.FIFO = { mRx.fifo->max_size(), mRx.fifo->size() };
+            rxStats->FIFO = { mRx.fifo->max_size(), mRx.fifo->size() };
         else
-            stats.FIFO = { 1, 0 };
+            rxStats->FIFO = { 1, 0 };
     }
-
-    return stats;
 }
 
 /// @copydoc SDRDevice::UploadTxWaveform()

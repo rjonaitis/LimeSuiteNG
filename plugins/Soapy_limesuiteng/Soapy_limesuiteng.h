@@ -9,11 +9,13 @@
 
 #include "limesuiteng/DeviceRegistry.h"
 #include "limesuiteng/StreamConfig.h"
+#include "limesuiteng/RFStream.h"
 
 #include <array>
 #include <chrono>
 #include <map>
 #include <mutex>
+#include <memory>
 #include <set>
 #include <vector>
 
@@ -269,7 +271,7 @@ class Soapy_limesuiteng : public SoapySDR::Device
         int DCTestAmplitude;
     };
     lime::SDRDevice* sdrDevice;
-
+    std::unique_ptr<lime::RFStream> rfstream;
     lime::StreamConfig streamConfig;
     bool isStreamRunning;
 

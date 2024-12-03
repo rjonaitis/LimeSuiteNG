@@ -599,7 +599,10 @@ long long Soapy_limesuiteng::getHardwareTime(const std::string& what) const
     {
         throw std::runtime_error("Soapy_limesuiteng::getHardwareTime() sample rate unset");
     }
-    auto ticks = sdrDevice->GetHardwareTimestamp(socIndex);
+    if (!rfstream)
+        return 0;
+
+    auto ticks = rfstream->GetHardwareTimestamp();
     return SoapySDR::ticksToTimeNs(ticks, sampleRate[SOAPY_SDR_RX]);
 }
 
@@ -614,8 +617,12 @@ void Soapy_limesuiteng::setHardwareTime(const long long timeNs, const std::strin
     {
         throw std::runtime_error("Soapy_limesuiteng::setHardwareTime() sample rate unset");
     }
-    auto ticks = SoapySDR::timeNsToTicks(timeNs, sampleRate[SOAPY_SDR_RX]);
-    sdrDevice->SetHardwareTimestamp(socIndex, ticks);
+
+    if (rfstream)
+        return;
+
+    // auto ticks = SoapySDR::timeNsToTicks(timeNs, sampleRate[SOAPY_SDR_RX]);
+    // TODO: rfstream->SetHardwareTimestamp(ticks);
 }
 
 /*******************************************************************

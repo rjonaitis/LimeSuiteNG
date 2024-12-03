@@ -176,25 +176,10 @@ SoapySDR::Stream* Soapy_limesuiteng::setupStream(
     //     config.bufferLength = std::stoul(args.at("bufferLength"));
     // }
 
-    // TODO: reimplement if relevant
-    // Optional packets latency, 1-maximum throughput, 0-lowest latency
-
-    // if (args.count("latency") != 0)
-    // {
-    //     config.performanceLatency = std::stof(args.at("latency"));
-    //     if (config.performanceLatency < 0)
-    //     {
-    //         config.performanceLatency = 0;
-    //     }
-    //     else if (config.performanceLatency > 1)
-    //     {
-    //         config.performanceLatency = 1;
-    //     }
-    // }
-
     // Create the stream
-    auto returnValue = sdrDevice->StreamSetup(config, 0);
-    if (returnValue != OpStatus::Success)
+
+    rfstream = sdrDevice->StreamCreate(config, 0);
+    if (!rfstream)
     {
         throw std::runtime_error("Soapy_limesuiteng::setupStream() failed: " + std::string(GetLastErrorMessage()));
     }
@@ -213,10 +198,8 @@ void Soapy_limesuiteng::closeStream(SoapySDR::Stream* stream)
 {
     std::unique_lock<std::recursive_mutex> lock(_accessMutex);
     auto icstream = reinterpret_cast<IConnectionStream*>(stream);
-
-    const auto& ownerDevice = icstream->ownerDevice;
-    ownerDevice->StreamStop(0);
-    ownerDevice->StreamDestroy(0);
+    rfstream->Stop();
+    rfstream.reset();
     delete icstream;
 }
 
@@ -230,7 +213,6 @@ int Soapy_limesuiteng::activateStream(SoapySDR::Stream* stream, const int flags,
 {
     std::unique_lock<std::recursive_mutex> lock(_accessMutex);
     auto icstream = reinterpret_cast<IConnectionStream*>(stream);
-    const auto& ownerDevice = icstream->ownerDevice;
 
     if (isStreamRunning)
         return 0;
@@ -263,7 +245,7 @@ int Soapy_limesuiteng::activateStream(SoapySDR::Stream* stream, const int flags,
     icstream->rxBurstRequest = (flags & SOAPY_SDR_HAS_TIME) | (flags & SOAPY_SDR_END_BURST);
     icstream->rxBurstSamples = numElems;
 
-    ownerDevice->StreamStart(0);
+    rfstream->Start();
     isStreamRunning = true;
     return 0;
 }
@@ -273,10 +255,8 @@ int Soapy_limesuiteng::deactivateStream(
 {
     std::unique_lock<std::recursive_mutex> lock(_accessMutex);
     auto icstream = reinterpret_cast<IConnectionStream*>(stream);
-    const auto& ownerDevice = icstream->ownerDevice;
     icstream->rxBurstRequest = false;
-
-    ownerDevice->StreamStop(0);
+    rfstream->Stop();
     isStreamRunning = false;
     return 0;
 }
@@ -310,18 +290,12 @@ int Soapy_limesuiteng::readStream(
             {
             case DataFormat::I16:
             case DataFormat::I12:
-                samplesReceived = icstream->ownerDevice->StreamRx(0,
-                    reinterpret_cast<complex16_t* const*>(buffs),
-                    samplesToSkip,
-                    &metadata,
-                    std::chrono::microseconds(timeoutUs));
+                samplesReceived = rfstream->StreamRx(
+                    reinterpret_cast<complex16_t* const*>(buffs), samplesToSkip, &metadata, std::chrono::microseconds(timeoutUs));
                 break;
             case DataFormat::F32:
-                samplesReceived = icstream->ownerDevice->StreamRx(0,
-                    reinterpret_cast<complex32f_t* const*>(buffs),
-                    samplesToSkip,
-                    &metadata,
-                    std::chrono::microseconds(timeoutUs));
+                samplesReceived = rfstream->StreamRx(
+                    reinterpret_cast<complex32f_t* const*>(buffs), samplesToSkip, &metadata, std::chrono::microseconds(timeoutUs));
                 break;
             }
             if (samplesReceived <= 0)
@@ -343,12 +317,12 @@ int Soapy_limesuiteng::readStream(
     {
     case DataFormat::I16:
     case DataFormat::I12:
-        samplesReceived = icstream->ownerDevice->StreamRx(
-            0, reinterpret_cast<complex16_t* const*>(buffs), numElems, &metadata, std::chrono::microseconds(timeoutUs));
+        samplesReceived = rfstream->StreamRx(
+            reinterpret_cast<complex16_t* const*>(buffs), numElems, &metadata, std::chrono::microseconds(timeoutUs));
         break;
     case DataFormat::F32:
-        samplesReceived = icstream->ownerDevice->StreamRx(
-            0, reinterpret_cast<complex32f_t* const*>(buffs), numElems, &metadata, std::chrono::microseconds(timeoutUs));
+        samplesReceived = rfstream->StreamRx(
+            reinterpret_cast<complex32f_t* const*>(buffs), numElems, &metadata, std::chrono::microseconds(timeoutUs));
         break;
     }
 
@@ -400,7 +374,6 @@ int Soapy_limesuiteng::writeStream(SoapySDR::Stream* stream,
     }
 
     auto icstream = reinterpret_cast<IConnectionStream*>(stream);
-    const auto& ownerDevice = icstream->ownerDevice;
 
     // Input metadata
     StreamMeta metadata{};
@@ -413,12 +386,12 @@ int Soapy_limesuiteng::writeStream(SoapySDR::Stream* stream,
     {
     case DataFormat::I16:
     case DataFormat::I12:
-        samplesSent = ownerDevice->StreamTx(
-            0, reinterpret_cast<const complex16_t* const*>(buffs), numElems, &metadata, std::chrono::microseconds(timeoutUs));
+        samplesSent = rfstream->StreamTx(
+            reinterpret_cast<const complex16_t* const*>(buffs), numElems, &metadata, std::chrono::microseconds(timeoutUs));
         break;
     case DataFormat::F32:
-        samplesSent = ownerDevice->StreamTx(
-            0, reinterpret_cast<const complex32f_t* const*>(buffs), numElems, &metadata, std::chrono::microseconds(timeoutUs));
+        samplesSent = rfstream->StreamTx(
+            reinterpret_cast<const complex32f_t* const*>(buffs), numElems, &metadata, std::chrono::microseconds(timeoutUs));
         break;
     }
 
@@ -435,8 +408,6 @@ int Soapy_limesuiteng::readStreamStatus(
     SoapySDR::Stream* stream, [[maybe_unused]] size_t& chanMask, int& flags, long long& timeNs, const long timeoutUs)
 {
     auto icstream = reinterpret_cast<IConnectionStream*>(stream);
-    const auto& ownerDevice = icstream->ownerDevice;
-
     int ret = 0;
     flags = 0;
     StreamStats metadata;
@@ -445,11 +416,11 @@ int Soapy_limesuiteng::readStreamStatus(
     {
         if (icstream->direction == SOAPY_SDR_TX)
         {
-            ownerDevice->StreamStatus(0, nullptr, &metadata);
+            rfstream->StreamStatus(nullptr, &metadata);
         }
         else
         {
-            ownerDevice->StreamStatus(0, &metadata, nullptr);
+            rfstream->StreamStatus(&metadata, nullptr);
         }
 
         if (metadata.loss)

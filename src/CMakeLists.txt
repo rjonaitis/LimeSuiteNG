@@ -19,7 +19,6 @@ endif()
 ## lime suite library
 ########################################################################
 set(LIME_SUITE_SOURCES
-    StreamComposite.cpp
     CommonFunctions.cpp
     OEMTesting.cpp
     logger/Logger.cpp
@@ -30,10 +29,13 @@ set(LIME_SUITE_SOURCES
     FPGA/WriteRegistersBatch.cpp
     threadHelper/threadHelper.cpp
     memory/MemoryPool.cpp
-    API/LMS_APIWrapper.cpp
     API/LimePlugin.cpp
     include/limesuiteng/SDRDevice.cpp
     utilities/toString.cpp)
+
+if(NOT MSVC)
+    set_source_files_properties(include/limesuiteng/SDRDevice.cpp PROPERTIES COMPILE_FLAGS -Wno-deprecated-declarations)
+endif()
 
 set_source_files_properties(mcu_program/common_src/lms7002m_controls.c PROPERTIES LANGUAGE CXX)
 
@@ -105,6 +107,10 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug"
     endif()
 endif()
 
+if(WIN32) # Windows don't have RPATH support, so need to place the DLLs into same directory as binaries
+    set_target_properties(limesuiteng PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+endif()
+
 install(
     TARGETS limesuiteng
     EXPORT limesuitengTarget
@@ -133,3 +139,13 @@ if(ENABLE_HEADERS AND ENABLE_LIBRARY)
 
     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/limesuiteng.pc DESTINATION lib${LIB_SUFFIX}/pkgconfig)
 endif(ENABLE_HEADERS AND ENABLE_LIBRARY)
+
+########################################################################
+# LMS_API Wrapper lib
+# wrapper functions split into separate library to avoid symbols collision
+# if both limesuiteng and LimeSuite would be linked to application.
+########################################################################
+add_library(limesuiteng-legacyapi API/LMS_APIWrapper.cpp)
+target_include_directories(
+    limesuiteng-legacyapi PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>)
+target_link_libraries(limesuiteng-legacyapi PRIVATE limesuiteng)

@@ -72,11 +72,17 @@ target_sources(
     PRIVATE LimeSuite_wrapper/streaming.cpp
             LimeSuite_wrapper/device.cpp
             streaming/streaming.cpp
+            streaming/RFStream_tests.cpp
             boards/LMS7002M_SDRDevice_Fixture.cpp)
+
+if(NOT MSVC)
+    set_source_files_properties(streaming/streaming.cpp PROPERTIES COMPILE_FLAGS -Wno-deprecated-declarations)
+endif()
+
 target_compile_definitions(gtest-runner-hardware PRIVATE GTEST_LINKED_AS_SHARED_LIBRARY=0)
 target_link_libraries(
     gtest-runner-hardware
-    PRIVATE limesuiteng taywee::args cli-shared
+    PRIVATE limesuiteng limesuiteng-legacyapi taywee::args cli-shared
     PUBLIC $<BUILD_INTERFACE:GTest::gtest> $<BUILD_INTERFACE:GTest::gmock>)
 if(CMAKE_BINARY_DIR)
     set_target_properties(gtest-runner-hardware PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
