@@ -334,9 +334,9 @@ static int limeuart_uart_port_init(
 
     // serial-base kernel naming: name.line:ctrl_id.port_id
     uport->line = line_id;
-    uport->ctrl_id = ctrl_id; // optional
 
     // not available in ubuntu 20.04 kernel version
+    // uport->ctrl_id = ctrl_id; // optional
     // uport->port_id = port_id; // optional
 
     // set by uart_add_one_port()
