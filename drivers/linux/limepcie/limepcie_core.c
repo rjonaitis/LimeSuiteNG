@@ -31,6 +31,7 @@
 static int total_uart_counter = 0;
 
 #define LIMEMICROSYSTEMS_VENDOR_ID 0x2058
+#define LIMEMICROSYSTEMS_GENERIC_DEVICE_ID 0x0100
 
 #define XILINX_FPGA_VENDOR_ID 0x10EE
 #define XILINX_FPGA_DEVICE_ID 0x7022
@@ -1529,6 +1530,7 @@ static void limepcie_pci_device_remove(struct pci_dev *pciContext)
 static const struct pci_device_id limepcie_pci_ids[] = {{PCI_DEVICE(XILINX_FPGA_VENDOR_ID, XILINX_FPGA_DEVICE_ID)},
     {PCI_DEVICE(XILINX_FPGA_VENDOR_ID, XTRX_FPGA_DEVICE_ID)},
     {PCI_DEVICE(ALTERA_FPGA_VENDOR_ID, ALTERA_FPGA_DEVICE_ID)},
+    {PCI_DEVICE(LIMEMICROSYSTEMS_VENDOR_ID, LIMEMICROSYSTEMS_GENERIC_DEVICE_ID)},
     {0}};
 MODULE_DEVICE_TABLE(pci, limepcie_pci_ids);
 
