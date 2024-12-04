@@ -56,4 +56,5 @@ if(NOT LIMEPCIE_INSTALL)
     return()
 endif()
 
-install_kernel_module(NAME limepcie DKMS ${LIMEPCIE_DKMS})
+option(LIMEPCIE_RELOAD_ON_INSTALL "After install reload kernel driver modules" ON)
+install_kernel_module(NAME limepcie DKMS ${LIMEPCIE_DKMS} RELOAD_MODULE ${LIMEPCIE_RELOAD_ON_INSTALL})

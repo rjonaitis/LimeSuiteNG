@@ -111,6 +111,45 @@ clean:
 ")
 endfunction()
 
+function(install_reload_kernel_module)
+    set(oneValueArgs NAME)
+    cmake_parse_arguments("MODPROBE_ARGS" "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+
+    # Remove previously active module
+    install(
+        CODE "
+        # check if module is already installed
+        message(STATUS \"Module info check: ${KMOD_INSTALL_NAME}\")
+        execute_process(
+                    COMMAND modinfo ${KMOD_INSTALL_NAME}
+                    RESULT_VARIABLE RET_CODE
+                    COMMAND_ECHO STDOUT
+                    )
+        if (NOT \${RET_CODE} EQUAL 0)
+            message(FATAL_ERROR \"Module (${KMOD_INSTALL_NAME}) info not found.\")
+        endif()
+
+        message(STATUS \"Unload kernel module: ${KMOD_INSTALL_NAME}\")
+        execute_process(
+                    COMMAND modprobe -r ${KMOD_INSTALL_NAME}
+                    RESULT_VARIABLE RET_CODE
+                    COMMAND_ECHO STDOUT
+                    )
+        if (NOT \${RET_CODE} EQUAL 0)
+            message(FATAL_ERROR \"Failed to remove kernel module: ${KMOD_INSTALL_NAME}\")
+        endif()
+
+        message(STATUS \"Load kernel module: ${KMOD_INSTALL_NAME}\")
+        execute_process(
+                    COMMAND modprobe -v ${KMOD_INSTALL_NAME} --first-time
+                    RESULT_VARIABLE RET_CODE
+                    COMMAND_ECHO STDOUT
+                    )
+        if (NOT \${RET_CODE} EQUAL 0)
+            message(FATAL_ERROR \"Failed to insert kernel module: ${KMOD_INSTALL_NAME}\")
+        endif()")
+endfunction()
+
 function(install_kernel_module_modprobe)
     set(oneValueArgs NAME)
     cmake_parse_arguments("KMOD_INSTALL" "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
@@ -128,10 +167,29 @@ function(install_kernel_module_modprobe)
     # Generate module dependencies, otherwise modprobe won't see the module
     install(CODE "execute_process(COMMAND sudo depmod)")
 
-    # Remove previously active module
-    install(CODE "execute_process(COMMAND sudo modprobe -r ${KMOD_INSTALL_NAME})")
-    # Reload new module
-    install(CODE "execute_process(COMMAND sudo modprobe ${KMOD_INSTALL_NAME})")
+    set(EXPECTED_LOAD_PATH "/lib/modules/${KMOD_KERNEL_RELEASE}/extra/${KMOD_INSTALL_NAME}.ko")
+    # verify that this module will be loaded with modprobe
+    get_target_property(MODULE_VERSION ${KMOD_INSTALL_NAME} VERSION)
+    install(
+        CODE "
+        execute_process(
+                    COMMAND modinfo -n ${KMOD_INSTALL_NAME}
+                    RESULT_VARIABLE RET_CODE
+                    OUTPUT_VARIABLE MODULE_PATH_INFO_IN_SYSTEM
+                    )
+        string(STRIP \${MODULE_PATH_INFO_IN_SYSTEM} MODULE_PATH_INFO_IN_SYSTEM_STRIP)
+        if (NOT \${RET_CODE} EQUAL 0)
+            message(FATAL_ERROR \"Module (${KMOD_INSTALL_NAME}) info not found.\")
+        endif()
+        string(COMPARE EQUAL \${MODULE_PATH_INFO_IN_SYSTEM_STRIP} ${EXPECTED_LOAD_PATH} MODULE_PATHS_MATCH)
+        if (NOT \${MODULE_PATHS_MATCH})
+            message(FATAL_ERROR
+\"System will not load module that is currently being installed: (${EXPECTED_LOAD_PATH})
+The system already has existing module with higher loading priority (\${MODULE_PATH_INFO_IN_SYSTEM_STRIP})
+If it's DKMS module, you can uninstall it first:\n\t'sudo dkms uninstall -m ${KMOD_INSTALL_NAME} -v ${MODULE_VERSION}'
+\")
+        endif()
+")
 endfunction()
 
 function(install_kernel_module_dkms)
@@ -141,28 +199,26 @@ function(install_kernel_module_dkms)
     get_target_property(OBJECTS_DIR ${KMOD_INSTALL_NAME} LIBRARY_OUTPUT_DIRECTORY)
     get_target_property(MODULE_VERSION ${KMOD_INSTALL_NAME} VERSION)
 
-    # copy all source files into system directory, exclude local build objects
     install(
-        DIRECTORY ${OBJECTS_DIR}/
-        DESTINATION "/usr/src/${KMOD_INSTALL_NAME}-${MODULE_VERSION}"
-        PATTERN "*.o" EXCLUDE
-        PATTERN "*.cmd" EXCLUDE)
+        CODE "
+        message(STATUS \"Remove module from DKMS tree.\")
+        execute_process(COMMAND sudo dkms remove -m ${KMOD_INSTALL_NAME} -v ${MODULE_VERSION})
+        ")
+    # If module name and version is not specified, and the directory contains dkms.conf file, it will copy the contents to /usr/src
+    install(
+        CODE "
+        message(STATUS \"Add module to DKMS tree.\")
+        execute_process(COMMAND sudo dkms add ${OBJECTS_DIR})")
 
-    install(CODE "execute_process(COMMAND sudo dkms add -m ${KMOD_INSTALL_NAME} -v ${MODULE_VERSION})")
-    # unbuild to force rebuild if the same version's source has been updated
-    install(CODE "execute_process(COMMAND sudo dkms unbuild -m ${KMOD_INSTALL_NAME} -v ${MODULE_VERSION})")
     # install also builds if it wasn't built yet
-    install(CODE "execute_process(COMMAND sudo dkms install -m ${KMOD_INSTALL_NAME} -v ${MODULE_VERSION})")
-
-    # depmod is done by DKMS
-
-    # dkms only installs, but does not load the driver, load it manually
-    install(CODE "execute_process(COMMAND sudo modprobe -r ${KMOD_INSTALL_NAME})")
-    install(CODE "execute_process(COMMAND sudo modprobe ${KMOD_INSTALL_NAME})")
+    install(
+        CODE "
+        message(STATUS \"install module.\")
+        execute_process(COMMAND sudo dkms install --force -m ${KMOD_INSTALL_NAME} -v ${MODULE_VERSION})")
 endfunction()
 
 function(install_kernel_module)
-    set(oneValueArgs NAME DKMS)
+    set(oneValueArgs NAME DKMS RELOAD_MODULE)
     cmake_parse_arguments("KMOD_INSTALL" "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
     if(NOT KMOD_INSTALL_NAME)
@@ -187,8 +243,12 @@ function(install_kernel_module)
     endif()
 
     if(KMOD_INSTALL_DKMS)
-        install_kernel_module_dkms(NAME ${KMOD_INSTALL_NAME})
+        install_kernel_module_dkms(NAME ${KMOD_INSTALL_NAME} RELOAD_MODULE ${KMOD_INSTALL_RELOAD_MODULE})
     else()
-        install_kernel_module_modprobe(NAME ${KMOD_INSTALL_NAME})
+        install_kernel_module_modprobe(NAME ${KMOD_INSTALL_NAME} RELOAD_MODULE ${KMOD_INSTALL_RELOAD_MODULE})
+    endif()
+
+    if(${KMOD_INSTALL_RELOAD_MODULE})
+        install_reload_kernel_module(NAME ${KMOD_INSTALL_NAME})
     endif()
 endfunction()
