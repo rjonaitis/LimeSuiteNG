@@ -125,10 +125,13 @@ function(install_kernel_module_modprobe)
     get_target_property(OBJECTS_DIR ${KMOD_INSTALL_NAME} LIBRARY_OUTPUT_DIRECTORY)
     install(FILES "${OBJECTS_DIR}/${KMOD_INSTALL_NAME}.ko" DESTINATION /lib/modules/${KMOD_KERNEL_RELEASE}/extra)
 
+    # Generate module dependencies, otherwise modprobe won't see the module
+    install(CODE "execute_process(COMMAND sudo depmod)")
+
     # Remove previously active module
-    install(CODE "execute_process(COMMAND modprobe -r ${KMOD_INSTALL_NAME})")
+    install(CODE "execute_process(COMMAND sudo modprobe -r ${KMOD_INSTALL_NAME})")
     # Reload new module
-    install(CODE "execute_process(COMMAND modprobe ${KMOD_INSTALL_NAME})")
+    install(CODE "execute_process(COMMAND sudo modprobe ${KMOD_INSTALL_NAME})")
 endfunction()
 
 function(install_kernel_module_dkms)
@@ -151,9 +154,11 @@ function(install_kernel_module_dkms)
     # install also builds if it wasn't built yet
     install(CODE "execute_process(COMMAND sudo dkms install -m ${KMOD_INSTALL_NAME} -v ${MODULE_VERSION})")
 
+    # depmod is done by DKMS
+
     # dkms only installs, but does not load the driver, load it manually
-    install(CODE "execute_process(COMMAND modprobe -r ${KMOD_INSTALL_NAME})")
-    install(CODE "execute_process(COMMAND modprobe ${KMOD_INSTALL_NAME})")
+    install(CODE "execute_process(COMMAND sudo modprobe -r ${KMOD_INSTALL_NAME})")
+    install(CODE "execute_process(COMMAND sudo modprobe ${KMOD_INSTALL_NAME})")
 endfunction()
 
 function(install_kernel_module)
