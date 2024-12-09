@@ -4,7 +4,14 @@
 #include "limesuiteng/LMS7002M.h"
 
 #include <cmath>
+#include <unistd.h>
 #include <fcntl.h>
+
+// Linux headers
+#include <fcntl.h> // Contains file controls like O_RDWR
+#include <errno.h> // Error integer and strerror() function
+#include <termios.h> // Contains POSIX terminal control definitions
+#include <unistd.h> // write(), read(), close()
 
 #include "chips/LMS7002M/validation.h"
 #include "chips/LMS7002M/LMS7002MCSR_Data.h"
@@ -628,11 +635,104 @@ OpStatus LimeSDR_XTRX::GNSSTest(OEMTestReporter& reporter, TestData& results)
 {
     OEMTestData test("GNSS");
     reporter.OnStart(test);
-    OpStatus status = mFPGA->OEMTestSetup(FPGA::TestID::GNSS, 1.0);
-    results.gnssPassed = status == OpStatus::Success;
-    if (status != OpStatus::Success)
+
+    FPGA::GatewareInfo gw = mFPGA->GetGatewareInfo();
+    if (gw.version == 1) // original gateware
     {
-        reporter.OnFail(test, "timeout");
+        OpStatus status = mFPGA->OEMTestSetup(FPGA::TestID::GNSS, 1.0);
+        results.gnssPassed = status == OpStatus::Success;
+        if (status != OpStatus::Success)
+        {
+            reporter.OnFail(test, "timeout");
+            return OpStatus::Error;
+        }
+    }
+    else if (gw.version == 2) // litex based gateware
+    {
+        std::string path = mStreamPort->GetPathName();
+        int flags = O_RDWR | O_NOCTTY | O_CLOEXEC;
+        int fpos = path.find("/trx");
+        path = path.substr(0, fpos);
+        path.append("/uart0");
+
+        int tty_fd = open(path.c_str(), flags);
+
+        struct termios tty;
+
+        if (tcgetattr(tty_fd, &tty) != 0)
+        {
+            printf("Error %i from tcgetattr: %s\n", errno, strerror(errno));
+        }
+
+        tty.c_cflag &= ~PARENB; // Clear parity bit, disabling parity (most common)
+        tty.c_cflag &= ~CSTOPB; // Clear stop field, only one stop bit used in communication (most common)
+        tty.c_cflag &= ~CSIZE; // Clear all bits that set the data size
+        tty.c_cflag |= CS8; // 8 bits per byte (most common)
+        tty.c_cflag &= ~CRTSCTS; // Disable RTS/CTS hardware flow control (most common)
+        tty.c_cflag |= CREAD | CLOCAL; // Turn on READ & ignore ctrl lines (CLOCAL = 1)
+
+        tty.c_lflag &= ~ICANON;
+        tty.c_lflag &= ~ECHO; // Disable echo
+        tty.c_lflag &= ~ECHOE; // Disable erasure
+        tty.c_lflag &= ~ECHONL; // Disable new-line echo
+        tty.c_lflag &= ~ISIG; // Disable interpretation of INTR, QUIT and SUSP
+        tty.c_iflag &= ~(IXON | IXOFF | IXANY); // Turn off s/w flow ctrl
+        tty.c_iflag &=
+            ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL); // Disable any special handling of received bytes
+
+        tty.c_oflag &= ~OPOST; // Prevent special interpretation of output bytes (e.g. newline chars)
+        tty.c_oflag &= ~ONLCR; // Prevent conversion of newline to carriage return/line feed
+        // tty.c_oflag &= ~OXTABS; // Prevent conversion of tabs to spaces (NOT PRESENT ON LINUX)
+        // tty.c_oflag &= ~ONOEOT; // Prevent removal of C-d chars (0x004) in output (NOT PRESENT ON LINUX)
+
+        tty.c_cc[VTIME] = 10; // Wait for up to 1s (10 deciseconds), returning as soon as any data is received.
+        tty.c_cc[VMIN] = 0;
+
+        // Set in/out baud rate to be 9600
+        cfsetispeed(&tty, B9600);
+        cfsetospeed(&tty, B9600);
+
+        if (tcsetattr(tty_fd, TCSANOW, &tty) != 0)
+        {
+            printf("Error %i from tcsetattr: %s\n", errno, strerror(errno));
+        }
+
+        const char outMessage[] = "$PMTK0*32\r\n";
+        int written = write(tty_fd, outMessage, sizeof(outMessage));
+        if (written != sizeof(outMessage))
+        {
+            reporter.OnFail(test, "Failed to write UART");
+            return OpStatus::Error;
+        }
+        const std::string expectedAnswer = "$PMTK001,0,3*30";
+        constexpr int bytesToRead = 256;
+        char inMessage[bytesToRead + 16]; // + some padding
+        memset(inMessage, 0, sizeof(inMessage));
+
+        // UART is periodically sending messages, so the expected message might not be the first to be read
+        for (int b = 0; b < bytesToRead;)
+        {
+            int bread = read(tty_fd, inMessage + b, sizeof(16));
+            if (bread < 0)
+            {
+                close(tty_fd);
+                reporter.OnFail(test, "Failed to read UART");
+                return OpStatus::Error;
+            }
+            b += bread;
+        }
+        close(tty_fd);
+        std::string searchStr(inMessage);
+        size_t foundPos = searchStr.find(expectedAnswer);
+        if (foundPos == std::string::npos)
+        {
+            reporter.OnFail(test, "Expected GNSS message not found");
+            return OpStatus::Error;
+        }
+    }
+    else
+    {
+        reporter.OnFail(test, "Unexpected gateware version.");
         return OpStatus::Error;
     }
     test.passed = true;
