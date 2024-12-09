@@ -13,11 +13,7 @@
 #include <memory>
 
 #include "limesuiteng/types.h"
-
-namespace lime {
-class SDRDevice;
-class RFStream;
-} // namespace lime
+#include "sdrdevice_block_base.h"
 
 namespace gr {
 namespace limesuiteng {
@@ -25,7 +21,7 @@ namespace limesuiteng {
 class sdrdevice_manager;
 struct sdrdevice_context;
 
-class sdrdevice_source_impl : public sdrdevice_source
+class sdrdevice_source_impl : public sdrdevice_source, public sdrdevice_block_base
 {
 public:
     sdrdevice_source_impl(const std::string& alias,
@@ -40,7 +36,6 @@ public:
     bool start() override;
     bool stop() override;
 
-    // Where all the action really happens
     int work(int noutput_items,
              gr_vector_const_void_star& input_items,
              gr_vector_void_star& output_items) override;
@@ -51,14 +46,6 @@ public:
     bool set_antenna(const std::string& antenna_name) override;
     double set_gain_generic(double gain_dB) override;
     double set_nco_frequency(double frequency_offset_Hz) override;
-
-private:
-    void ReleaseResources();
-    uint32_t chipIndex;
-    std::shared_ptr<sdrdevice_manager> devManager;
-    std::shared_ptr<sdrdevice_context> devContext;
-    static constexpr lime::TRXDir direction{ lime::TRXDir::Rx };
-    bool autoAntenna;
 };
 
 } // namespace limesuiteng

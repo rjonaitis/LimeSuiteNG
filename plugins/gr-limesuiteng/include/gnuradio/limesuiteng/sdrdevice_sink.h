@@ -27,12 +27,23 @@ public:
     typedef std::shared_ptr<sdrdevice_sink> sptr;
 
     /*!
-     * \brief Return a shared_ptr to a new instance of limesuiteng::sdrdevice_sink.
+     * \brief Return a shared_ptr to a new instance of limesuiteng::sdrdevice_source.
      *
-     * To avoid accidental use of raw pointers, limesuiteng::sdrdevice_sink's
+     * To avoid accidental use of raw pointers, limesuiteng::sdrdevice_source's
      * constructor is in a private implementation
-     * class. limesuiteng::sdrdevice_sink::make is the public interface for
+     * class. limesuiteng::sdrdevice_source::make is the public interface for
      * creating new instances.
+     *
+     * @param   alias User defined name of the block
+     * @param   deviceHandleHint Speficy which SDR device should be assigned, if empty
+     * first available device will be selected
+     * @param   chipIndex If multiple RFSOC are available on the device, specify which one
+     * to use
+     * @param   channelCount Number of data channels
+     * @param   dataFormat Output samples format
+     * @param   sampleRate Data interface sampling rate
+     * @param   rf_oversampling RF sampling decimation ratio (0-max possible, x1, x2,
+     * x4...)
      */
     static sptr make(const std::string& alias,
                      const std::string& deviceHandleHint,

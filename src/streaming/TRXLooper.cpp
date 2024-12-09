@@ -1132,9 +1132,9 @@ void TRXLooper::TransmitPacketsLoop()
         if (!outputReady)
             continue;
 
-        StreamHeader* pkt = reinterpret_cast<StreamHeader*>(output.data());
+        FPGA_TxDataPacket* pkt = reinterpret_cast<FPGA_TxDataPacket*>(output.data());
         lastTS = pkt->counter;
-        if (isRxActive) // Rx is needed for current timestamp
+        if (!pkt->getIgnoreTimestamp() && isRxActive) // Rx is needed for current timestamp
         {
             int64_t rxNow = mRx.lastTimestamp.load(std::memory_order_relaxed);
             const int64_t txAdvance = pkt->counter - rxNow;

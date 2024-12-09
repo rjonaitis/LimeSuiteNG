@@ -13,6 +13,48 @@ namespace limesuiteng {
 
 static std::shared_ptr<sdrdevice_manager> g_deviceManager;
 
+static gr::logger_ptr logger;
+static gr::logger_ptr debug_logger;
+
+static std::mutex log_handler_mutex;
+
+static void gr_loghandler(const lime::LogLevel level, const char* message)
+{
+    assert(logger);
+    assert(message);
+    std::lock_guard<std::mutex> lock(log_handler_mutex);
+
+    switch (level) {
+    case lime::LogLevel::Critical:
+        GR_LOG_CRIT(logger, message);
+        break;
+
+    case lime::LogLevel::Error:
+        GR_LOG_ERROR(logger, message);
+        break;
+
+    case lime::LogLevel::Warning:
+        GR_LOG_WARN(logger, message);
+        break;
+
+    case lime::LogLevel::Info:
+        GR_LOG_INFO(logger, message);
+        break;
+
+    case lime::LogLevel::Debug:
+        GR_LOG_DEBUG(logger, message);
+        break;
+
+    default:
+        break;
+    }
+}
+
+static void gr_loghandler_string(const lime::LogLevel level, const std::string& message)
+{
+    gr_loghandler(level, message.c_str());
+}
+
 static bool FuzzyHandleMatch(const DeviceHandle& handle, const std::string_view text)
 {
     if (text.empty())
@@ -35,8 +77,16 @@ static bool FuzzyHandleMatch(const DeviceHandle& handle, const std::string_view 
 
 std::shared_ptr<sdrdevice_manager> sdrdevice_manager::GetSingleton()
 {
-    if (!g_deviceManager)
+    if (!g_deviceManager) {
         g_deviceManager = std::make_shared<sdrdevice_manager>();
+        if (!logger)
+            gr::configure_default_loggers(logger, debug_logger, "LimeSuiteNG");
+        lime::registerLogHandler(gr_loghandler);
+
+        logger->info(fmt::format("version: {:s} build {:s}",
+                                 lime::GetLibraryVersion(),
+                                 lime::GetBuildTimestamp()));
+    }
     return g_deviceManager;
 }
 
@@ -48,9 +98,6 @@ sdrdevice_manager::sdrdevice_manager() : _logger("SDRDeviceManager")
         throw std::runtime_error(
             "sdrdevice_manager::sdrdevice_manager(): No Lime devices found.");
     }
-
-    // device->SetMessageLogCallback(lime::cli::LogCallback);
-    // lime::registerLogHandler(lime::cli::LogCallback);
 }
 
 sdrdevice_manager::~sdrdevice_manager()
@@ -118,6 +165,9 @@ sdrdevice_manager::GetDeviceContextByHandle(const std::string& deviceHandleHint)
     _logger.info(fmt::format("Connecting device: \"{:s}\"", handle.Serialize()));
     ctx->handle = handle;
     ctx->device = std::unique_ptr<SDRDevice>(DeviceRegistry::makeDevice(handle));
+
+    ctx->device->SetMessageLogCallback(gr_loghandler_string);
+
     if (!ctx->device) {
         m_contexts.pop_back();
         _logger.error(fmt::format("Unable to use device: \"{:s}\"", handle.Serialize()));

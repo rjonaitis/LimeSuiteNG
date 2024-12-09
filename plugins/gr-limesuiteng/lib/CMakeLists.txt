@@ -14,7 +14,8 @@ include(GrPlatform) #define LIB_SUFFIX
 list(APPEND limesuiteng_sources
     sdrdevice_manager.cc
     sdrdevice_source_impl.cc
-    sdrdevice_sink_impl.cc)
+    sdrdevice_sink_impl.cc
+    sdrdevice_block_base.cc)
 
 set(limesuiteng_sources
     "${limesuiteng_sources}"
