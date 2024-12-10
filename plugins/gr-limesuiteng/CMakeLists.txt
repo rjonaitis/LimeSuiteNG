@@ -20,6 +20,18 @@ cmake_minimum_required(VERSION 3.8)
 project(gr-limesuiteng CXX C)
 enable_testing()
 
+# workaround for adding this directory as optional sub project, because find_package(Gnuradio) is sensitive to which project initiates it
+if (NOT ${CMAKE_PROJECT_NAME} EQUAL ${PROJECT_NAME})
+    find_package(Gnuradio QUIET) # pre-check if any gnuradio package is available
+    include(CMakeDependentOption)
+    include(FeatureSummary)
+    cmake_dependent_option(ENABLE_GNURADIO "Build LimeSuiteNG plugin for GNU Radio" ON "Gnuradio_FOUND" OFF)
+    add_feature_info(GNURADIO ENABLE_GNURADIO "GNU Radio 3.9+ Plug-in")
+    if(NOT ENABLE_GNURADIO)
+        return()
+    endif()
+endif()
+
 # Install to PyBOMBS target prefix if defined
 if(DEFINED ENV{PYBOMBS_PREFIX})
     set(CMAKE_INSTALL_PREFIX

@@ -17,16 +17,8 @@ add_subdirectory(Soapy_limesuiteng)
 ########################################################################
 ## GNU Radio plugin
 ########################################################################
-find_package(Gnuradio "3.10")
-include(CMakeDependentOption)
-cmake_dependent_option(
-    ENABLE_GNURADIO_PREREQ "Build LimeSuiteNG plugin for GNU Radio" ON "GNURADIO_FOUND;ENABLE_LIBRARY;BUILD_SHARED_LIBS" OFF)
-
-if(ENABLE_GNURADIO_PREREQ)
-    add_subdirectory(gr-limesuiteng)
-else()
-    add_feature_info(GNURADIO OFF "GNU Radio 3.10+ Plug-in")
-endif()
+# find_package(Gnuradio "3.10") # Can't use find gnuradio here, as it copies python_compiler_helper.py to top project dir, which is later not found within gr plugin build directory
+add_subdirectory(gr-limesuiteng)
 
 ########################################################################
 ## HDSDR plugin
