@@ -1,16 +1,43 @@
-########################################################################
-## Create LimeSuiteNG project
-########################################################################
-cmake_minimum_required(VERSION 3.15)
-
 include(FeatureSummary)
 include(CMakeDependentOption)
 
+cmake_minimum_required(VERSION 3.15)
+project(
+    "LimeSuiteNG"
+    VERSION 0.4.0.0
+    LANGUAGES C CXX)
 message(STATUS "cmake version: ${CMAKE_VERSION}")
+
+# set(CPACK_PACKAGE_NAME "LimeSuiteNG-bundle")
+# set(CPACK_PACKAGE_VENDOR "MyriadRF")
+# set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
+#     "LimeSuiteNG bundle for LimeSDR devices")
+# set(CPACK_DEBIAN_PACKAGE_DEPENDS "")
+# set(CPACK_PACKAGE_CONTACT "info@limemicro.com")
+# set(CPACK_DEBIAN_PACKAGE_MAINTAINER "info@limemicro.com")
+# set(CPACK_THREADS 0)
+# set(CPACK_SOURCE_GENERATOR "TGZ;ZIP")
+# set(CPACK_SOURCE_IGNORE_FILES "CVS/;/.git/;.swp$;.#;/#;.*~;build/*;pack/*" )
+
+########################################################################
+# Gather version information from the changelog
+# LIMESUITENG_API_VERSION in VersionInfo.h reflects the major/minor
+########################################################################
+file(READ "${PROJECT_SOURCE_DIR}/Changelog.txt" changelog_txt)
+string(REGEX MATCH "Release ([0-9]+)\\.([0-9]+)\\.([0-9]+) \\(" CHANGELOG_MATCH "${changelog_txt}")
+if(NOT CHANGELOG_MATCH)
+    message(FATAL_ERROR "Failed to extract version number from Changelog.txt")
+endif(NOT CHANGELOG_MATCH)
+set(VERSION_MAJOR "${CMAKE_MATCH_1}")
+set(VERSION_MINOR "${CMAKE_MATCH_2}")
+set(VERSION_PATCH "${CMAKE_MATCH_3}")
+
+# set(CPACK_PACKAGE_INSTALL_DIRECTORY "CPackComponentExample")
+# This must always be after all CPACK\_\* variables are defined
+
 set(CMAKE_CONFIGURATION_TYPES
     "Debug;Release;RelWithDebInfo"
     CACHE STRING INTERNAL FORCE)
-project("LimeSuiteNG" LANGUAGES C CXX)
 
 ### Require out-of-source builds
 file(TO_CMAKE_PATH "${PROJECT_BINARY_DIR}/CMakeLists.txt" LOC_PATH)
@@ -33,19 +60,6 @@ list(FIND CMAKE_CONFIGURATION_TYPES "${CMAKE_BUILD_TYPE}" index)
 if(${index} EQUAL -1)
     set(CMAKE_BUILD_TYPE "Release")
 endif()
-
-########################################################################
-# Gather version information from the changelog
-# LIMESUITENG_API_VERSION in VersionInfo.h reflects the major/minor
-########################################################################
-file(READ "${PROJECT_SOURCE_DIR}/Changelog.txt" changelog_txt)
-string(REGEX MATCH "Release ([0-9]+)\\.([0-9]+)\\.([0-9]+) \\(" CHANGELOG_MATCH "${changelog_txt}")
-if(NOT CHANGELOG_MATCH)
-    message(FATAL_ERROR "Failed to extract version number from Changelog.txt")
-endif(NOT CHANGELOG_MATCH)
-set(VERSION_MAJOR "${CMAKE_MATCH_1}")
-set(VERSION_MINOR "${CMAKE_MATCH_2}")
-set(VERSION_PATCH "${CMAKE_MATCH_3}")
 
 # verify that VersionInfo.h LIMESUITENG_API_VERSION define matches changelog
 file(READ "${PROJECT_SOURCE_DIR}/src/include/limesuiteng/VersionInfo.h" version_info_header_txt)
@@ -315,16 +329,30 @@ endif()
 ########################################################################
 ## lime suite ng build
 ########################################################################
-add_subdirectory(embedded)
-add_subdirectory(src)
+option(BUILD_CORE "Build limesuiteng core library" ON)
+add_feature_info("BUILD_CORE" BUILD_CORE "limesuiteng core library")
+if(BUILD_CORE)
+    add_subdirectory(embedded)
+    add_subdirectory(src)
+endif()
 
+########################################################################
 # Lime command line tools
-add_subdirectory(cli)
+########################################################################
+cmake_dependent_option(BUILD_CLI "Build command line interface applications" ON "BUILD_CORE" OFF)
+add_feature_info("BUILD_CLI" BUILD_CLI "command line interface applications")
+if(BUILD_CLI)
+    add_subdirectory(cli)
+endif()
 
 ########################################################################
 ## graphical interface
 ########################################################################
-add_subdirectory(GUI)
+cmake_dependent_option(BUILD_GUI "Build limeGUI application" ON "BUILD_CORE" OFF)
+add_feature_info("BUILD_GUI" BUILD_GUI "graphical user interface application (limeGUI)")
+if(BUILD_GUI)
+    add_subdirectory(GUI)
+endif()
 
 #########################################################################
 # GTest tests
@@ -337,36 +365,29 @@ endif()
 ########################################################################
 ## plugins for external programs
 ########################################################################
-add_subdirectory(plugins)
+cmake_dependent_option(BUILD_PLUGINS "Build LimeSuiteNG plugins for external software packages" ON "BUILD_CORE" OFF)
+add_feature_info("BUILD_PLUGINS" BUILD_PLUGINS "plugins for external software packages")
+if(BUILD_PLUGINS)
+    add_subdirectory(plugins)
+endif()
 
 ########################################################################
 ## udev rules for linux usb
 ########################################################################
-add_subdirectory(udev-rules)
+cmake_dependent_option(INSTALL_UDEV_RULES "Install Linux udev rules for LimeSDR devices" ON "UNIX" OFF)
+add_feature_info("INSTALL_UDEV_RULES" INSTALL_UDEV_RULES "Install Linux udev rules for LimeSDR devices")
+if(INSTALL_UDEV_RULES)
+    add_subdirectory(udev-rules)
+endif()
 
 ########################################################################
 ## Doxygen
 ########################################################################
-add_subdirectory(docs/doxygen)
-
-########################################################################
-# CMake Project config files
-########################################################################
-if(ENABLE_HEADERS AND ENABLE_LIBRARY)
-    include(CMakePackageConfigHelpers)
-    write_basic_package_version_file(
-        ${PROJECT_BINARY_DIR}/limesuitengConfigVersion.cmake
-        VERSION ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}
-        COMPATIBILITY SameMinorVersion)
-    install(FILES ${PROJECT_BINARY_DIR}/limesuitengConfigVersion.cmake DESTINATION lib${LIB_SUFFIX}/cmake/${PROJECT_NAME})
-
-    install(
-        EXPORT limesuitengTarget
-        NAMESPACE limesuiteng::
-        FILE limesuitengConfig.cmake
-        DESTINATION lib${LIB_SUFFIX}/cmake/${PROJECT_NAME})
-
-endif(ENABLE_HEADERS AND ENABLE_LIBRARY)
+option(BUILD_DOCS "Generate documentation using Doxygen" ON)
+add_feature_info("BUILD_DOCS" BUILD_DOCS "Install Linux udev rules for LimeSDR devices")
+if(BUILD_DOCS)
+    add_subdirectory(docs/doxygen)
+endif()
 
 #########################################################################
 # summary
@@ -397,3 +418,5 @@ message(STATUS "Install prefix: ${CMAKE_INSTALL_PREFIX}")
 message(STATUS "Build timestamp: ${BUILD_TIMESTAMP}")
 message(STATUS "Lime Suite version: ${LIME_SUITE_VERSION}")
 message(STATUS "ABI/so version: ${LIME_SUITE_SOVER}")
+
+# include(CPack)

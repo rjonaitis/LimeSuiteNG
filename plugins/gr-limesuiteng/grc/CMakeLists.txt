@@ -6,6 +6,4 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 
-install(FILES
-    limesuiteng_sdrdevice_source.block.yml
-    limesuiteng_sdrdevice_sink.block.yml DESTINATION share/gnuradio/grc/blocks)
+install(FILES limesuiteng_sdrdevice_source.block.yml limesuiteng_sdrdevice_sink.block.yml DESTINATION share/gnuradio/grc/blocks)

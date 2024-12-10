@@ -1,3 +1,6 @@
+include(FeatureSummary)
+include(CMakeDependentOption)
+
 ########################################################################
 ## public headers
 ########################################################################
@@ -7,13 +10,31 @@ file(
     "${CMAKE_CURRENT_SOURCE_DIR}/include/limesuiteng/*.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/limesuiteng/*.hpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/lime/*.h")
-include(FeatureSummary)
-include(CMakeDependentOption)
-cmake_dependent_option(ENABLE_HEADERS "Enable install headers" ON "TRUE" OFF)
-add_feature_info(HEADERS ENABLE_HEADERS "The limesuiteng headers")
-if(ENABLE_HEADERS)
+
+option(INSTALL_HEADERS "Enable install limesuiteng headers" ON)
+add_feature_info("INSTALL_HEADERS" INSTALL_HEADERS "Install limesuiteng headers")
+if(INSTALL_HEADERS)
     install(FILES ${LIMESUITENG_PUBLIC_HEADERS} DESTINATION include/limesuiteng)
 endif()
+
+########################################################################
+# CMake Project config files
+########################################################################
+if(INSTALL_HEADERS)
+    include(CMakePackageConfigHelpers)
+    write_basic_package_version_file(
+        ${PROJECT_BINARY_DIR}/limesuitengConfigVersion.cmake
+        VERSION ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}
+        COMPATIBILITY SameMinorVersion)
+    install(FILES ${PROJECT_BINARY_DIR}/limesuitengConfigVersion.cmake DESTINATION lib${LIB_SUFFIX}/cmake/${PROJECT_NAME})
+
+    install(
+        EXPORT limesuitengTarget
+        NAMESPACE limesuiteng::
+        FILE limesuitengConfig.cmake
+        DESTINATION lib${LIB_SUFFIX}/cmake/${PROJECT_NAME})
+
+endif(INSTALL_HEADERS)
 
 ########################################################################
 ## lime suite library
@@ -53,15 +74,6 @@ list(APPEND LIME_SUITE_SOURCES ${CMAKE_CURRENT_BINARY_DIR}/SystemResources.cpp)
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 
-include(FeatureSummary)
-include(CMakeDependentOption)
-
-option(ENABLE_LIBRARY "Enable build library" ON)
-add_feature_info(LIBRARY ENABLE_LIBRARY "The limesuiteng library")
-if(NOT ENABLE_LIBRARY)
-    return()
-endif(NOT ENABLE_LIBRARY)
-
 add_library(limesuiteng ${LIME_SUITE_SOURCES})
 
 target_precompile_headers(limesuiteng PRIVATE ${CPP_STL_CPH})
@@ -86,7 +98,7 @@ find_package(Threads REQUIRED)
 target_link_libraries(
     limesuiteng
     PUBLIC Threads::Threads
-    PRIVATE $<BUILD_INTERFACE:kissfft> rang $<BUILD_INTERFACE:cpp-feather-ini-parser>)
+    PRIVATE $<BUILD_INTERFACE:kissfft> $<BUILD_INTERFACE:rang> $<BUILD_INTERFACE:cpp-feather-ini-parser>)
 
 target_include_directories(
     limesuiteng
@@ -125,7 +137,6 @@ add_subdirectory(boards)
 add_subdirectory(chips)
 add_subdirectory(DSP)
 add_subdirectory(examples)
-add_subdirectory(utilities)
 add_subdirectory(streaming)
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/boards/BoardSupportLoader.in.cpp ${CMAKE_CURRENT_BINARY_DIR}/BoardSupportLoader.cpp)
@@ -134,11 +145,11 @@ target_sources(limesuiteng PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/BoardSupportLoade
 ########################################################################
 # Build pkg config file
 ########################################################################
-if(ENABLE_HEADERS AND ENABLE_LIBRARY)
+if(INSTALL_HEADERS)
     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/limesuiteng.pc.in ${CMAKE_CURRENT_BINARY_DIR}/limesuiteng.pc @ONLY)
 
     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/limesuiteng.pc DESTINATION lib${LIB_SUFFIX}/pkgconfig)
-endif(ENABLE_HEADERS AND ENABLE_LIBRARY)
+endif(INSTALL_HEADERS)
 
 ########################################################################
 # LMS_API Wrapper lib

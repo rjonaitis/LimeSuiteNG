@@ -21,13 +21,13 @@ project(gr-limesuiteng CXX C)
 enable_testing()
 
 # workaround for adding this directory as optional sub project, because find_package(Gnuradio) is sensitive to which project initiates it
-if (NOT ${CMAKE_PROJECT_NAME} EQUAL ${PROJECT_NAME})
+if(NOT ${CMAKE_PROJECT_NAME} EQUAL ${PROJECT_NAME})
     find_package(Gnuradio QUIET) # pre-check if any gnuradio package is available
     include(CMakeDependentOption)
     include(FeatureSummary)
-    cmake_dependent_option(ENABLE_GNURADIO "Build LimeSuiteNG plugin for GNU Radio" ON "Gnuradio_FOUND" OFF)
-    add_feature_info(GNURADIO ENABLE_GNURADIO "GNU Radio 3.9+ Plug-in")
-    if(NOT ENABLE_GNURADIO)
+    cmake_dependent_option(BUILD_PLUGINS_GNURADIO "Build gr-limesuiteng plugin for GNU Radio" ON "Gnuradio_FOUND" OFF)
+    add_feature_info("BUILD_PLUGIN_GNURADIO" BUILD_PLUGINS_GNURADIO "GNU Radio 3.9+ Plug-in")
+    if(NOT BUILD_PLUGINS_GNURADIO)
         return()
     endif()
 endif()
@@ -44,6 +44,10 @@ endif()
 list(INSERT CMAKE_MODULE_PATH 0 ${PROJECT_SOURCE_DIR}/cmake/Modules)
 # Find gnuradio to get access to the cmake modules
 find_package(Gnuradio "3.10" REQUIRED)
+
+if(NOT Gnuradio_FOUND)
+    return()
+endif()
 
 # Set the version information here
 # cmake-format: off

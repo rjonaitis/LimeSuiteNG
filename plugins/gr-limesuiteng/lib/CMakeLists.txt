@@ -11,11 +11,7 @@
 ########################################################################
 include(GrPlatform) #define LIB_SUFFIX
 
-list(APPEND limesuiteng_sources
-    sdrdevice_manager.cc
-    sdrdevice_source_impl.cc
-    sdrdevice_sink_impl.cc
-    sdrdevice_block_base.cc)
+list(APPEND limesuiteng_sources sdrdevice_manager.cc sdrdevice_source_impl.cc sdrdevice_sink_impl.cc sdrdevice_block_base.cc)
 
 set(limesuiteng_sources
     "${limesuiteng_sources}"
@@ -34,8 +30,7 @@ target_include_directories(
 set_target_properties(gnuradio-limesuiteng PROPERTIES DEFINE_SYMBOL "gnuradio_limesuiteng_EXPORTS")
 
 if(APPLE)
-    set_target_properties(gnuradio-limesuiteng PROPERTIES INSTALL_NAME_DIR
-                                                    "${CMAKE_INSTALL_PREFIX}/lib")
+    set_target_properties(gnuradio-limesuiteng PROPERTIES INSTALL_NAME_DIR "${CMAKE_INSTALL_PREFIX}/lib")
 endif(APPLE)
 
 ########################################################################

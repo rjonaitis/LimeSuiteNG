@@ -1,8 +1,8 @@
 include(FeatureSummary)
 include(CMakeDependentOption)
-cmake_dependent_option(ENABLE_EXAMPLES "Enable library example programs" ON "ENABLE_LIBRARY" OFF)
-add_feature_info(EXAMPLES ENABLE_EXAMPLES "LimeSuiteNG API examples")
-if(NOT ENABLE_EXAMPLES)
+cmake_dependent_option(BUILD_EXAMPLES "Enable library example programs" ON "BUILD_CORE" OFF)
+add_feature_info("BUILD_EXAMPLES" BUILD_EXAMPLES "LimeSuiteNG API examples")
+if(NOT BUILD_EXAMPLES)
     return()
 endif()
 

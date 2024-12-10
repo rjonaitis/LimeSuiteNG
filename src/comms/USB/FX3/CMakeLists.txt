@@ -34,9 +34,9 @@ endif()
 
 include(FeatureSummary)
 include(CMakeDependentOption)
-cmake_dependent_option(ENABLE_USB_FX3 "Enable FX3" ON "FX3_FOUND OR LIBUSB_1_FOUND" OFF)
-add_feature_info(USB_FX3 ENABLE_USB_FX3 "USB support for Cypress FX3")
-if(NOT ENABLE_USB_FX3)
+cmake_dependent_option(LIMESUITENG_USB_FX3 "Enable FX3" ON "FX3_FOUND OR LIBUSB_1_FOUND" OFF)
+add_feature_info("LIMESUITENG_USB_FX3" LIMESUITENG_USB_FX3 "USB support for Cypress FX3")
+if(NOT LIMESUITENG_USB_FX3)
     return()
 endif()
 

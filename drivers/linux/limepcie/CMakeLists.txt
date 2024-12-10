@@ -1,3 +1,5 @@
+include(FeatureSummary)
+include(CMakeDependentOption)
 cmake_minimum_required(VERSION 3.5)
 
 project(
@@ -24,6 +26,8 @@ configure_file(version.h.in ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-src/vers
 configure_file(dkms.conf.in ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-src/dkms.conf @ONLY)
 
 find_program(DKMS_EXECUTABLE NAMES dkms)
+mark_as_advanced(DKMS_EXECUTABLE)
+
 cmake_dependent_option(LIMEPCIE_DKMS "Use DKMS when installing the kernel module" ON "DKMS_EXECUTABLE" OFF)
 add_feature_info("LIMEPCIE_DKMS" LIMEPCIE_DKMS "Use DKMS system to build/install limepcie module")
 

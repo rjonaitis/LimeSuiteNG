@@ -9,7 +9,9 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 ########################################################################
 ## public headers
 ########################################################################
-install(DIRECTORY "${PROJECT_SOURCE_DIR}/include/" DESTINATION include)
+if(INSTALL_HEADERS)
+    install(DIRECTORY "${PROJECT_SOURCE_DIR}/include/" DESTINATION include)
+endif()
 
 add_subdirectory(gfir)
 add_subdirectory(lms7002m)

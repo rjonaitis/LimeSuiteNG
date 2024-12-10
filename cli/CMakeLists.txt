@@ -1,10 +1,9 @@
-include(FeatureSummary)
-include(CMakeDependentOption)
-cmake_dependent_option(ENABLE_CLI "Enable command line programs" ON "ENABLE_LIBRARY" OFF)
-add_feature_info(CLI ENABLE_CLI "LimeSuite command line interface tools")
-if(NOT ENABLE_CLI)
-    return()
-endif()
+project(
+    "limesuiteng-cli"
+    DESCRIPTION "LimeSuiteNG Command Line Interface applications"
+    VERSION 1.0.0.0
+    LANGUAGES CXX
+    HOMEPAGE_URL https://github.com/myriadrf/LimeSuiteNG/tree/develop/cli)
 
 # common functionality among cli tools
 add_library(cli-shared STATIC common.cpp)

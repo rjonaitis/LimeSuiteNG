@@ -5,17 +5,6 @@ set(CMAKE_CONFIGURATION_TYPES
     "Debug;Release;RelWithDebInfo"
     CACHE STRING INTERNAL FORCE)
 
-include(FeatureSummary)
-include(CMakeDependentOption)
-cmake_dependent_option(ENABLE_AMARISOFT_PLUGIN "Build LimeSuite integration to Amarisoft" ON "UNIX;ENABLE_LIBRARY" OFF)
-if(UNIX) # show feature only on Linux
-    add_feature_info(AMARISOFT_PLUGIN ENABLE_AMARISOFT_PLUGIN "LimeSuite Amarisoft integration plugin")
-endif()
-
-if(NOT ENABLE_AMARISOFT_PLUGIN)
-    return()
-endif()
-
 #is this processor x86? set variable X86
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "i686.*|i386.*|x86.*|amd64.*|AMD64.*")
     set(X86 TRUE)

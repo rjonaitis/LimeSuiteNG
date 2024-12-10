@@ -30,9 +30,9 @@ endif()
 
 include(FeatureSummary)
 include(CMakeDependentOption)
-cmake_dependent_option(ENABLE_USB_FTDI "Enable FT601" ON "FTDI_FOUND OR LIBUSB_1_FOUND" OFF)
-add_feature_info(USB_FTDI ENABLE_USB_FTDI "USB support for FTDI")
-if(NOT ENABLE_USB_FTDI)
+cmake_dependent_option(LIMESUITENG_USB_FTDI "Enable FT601" ON "FTDI_FOUND OR LIBUSB_1_FOUND" OFF)
+add_feature_info("LIMESUITENG_USB_FTDI" LIMESUITENG_USB_FTDI "USB support for FTDI")
+if(NOT LIMESUITENG_USB_FTDI)
     return()
 endif()
 

@@ -1,5 +1,5 @@
 # Download and compile needed externals
-
+cmake_minimum_required(VERSION 3.15)
 include(FetchContent)
 
 #########################################################################
@@ -12,7 +12,7 @@ if(TARGET OpenGL::GL) # GLEW header needs GL/gl.h
         GLEW_download
         URL https://github.com/nigels-com/glew/releases/download/glew-2.2.0/glew-2.2.0.tgz
         URL_HASH SHA256=d4fc82893cfb00109578d0a1a2337fb8ca335b3ceccf97b97e5cc7f08e4353e1
-        CONFIGURE_COMMAND "" BUILD_COMMAND "")
+        EXCLUDE_FROM_ALL CONFIGURE_COMMAND "" BUILD_COMMAND "")
     fetchcontent_makeavailable(GLEW_download)
     fetchcontent_getproperties(GLEW_download SOURCE_DIR GLEW_PATH)
     add_library(GLEW STATIC ${GLEW_PATH}/src/glew.c)
@@ -126,6 +126,12 @@ fetchcontent_declare(
     rang
     GIT_REPOSITORY https://github.com/agauniyal/rang
     GIT_TAG 22345aa4c468db3bd4a0e64a47722aad3518cc81
-    EXCLUDE_FROM_ALL CONFIGURE_COMMAND "" BUILD_COMMAND "")
+    CONFIGURE_COMMAND "" BUILD_COMMAND "" EXCLUDE_FROM_ALL)
 
+# Exclude from all for pre-CMake 3.28
+fetchcontent_getproperties(args)
+if(NOT args_POPULATED)
+    fetchcontent_populate(rang)
+    add_subdirectory(${rang_SOURCE_DIR} ${args_BINARY_DIR} EXCLUDE_FROM_ALL)
+endif()
 fetchcontent_makeavailable(rang)

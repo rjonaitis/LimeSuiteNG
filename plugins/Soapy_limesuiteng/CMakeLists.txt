@@ -9,17 +9,6 @@ set_package_properties(
     PURPOSE "Adds LimeSuiteNG bindings for SoapySDR")
 
 ########################################################################
-## Feature registration
-########################################################################
-include(FeatureSummary)
-include(CMakeDependentOption)
-cmake_dependent_option(ENABLE_SOAPYSDR "Enable LimeSuiteNG SoapySDR bindings" ON "ENABLE_LIBRARY;SoapySDR_FOUND" OFF)
-add_feature_info(SOAPYSDR ENABLE_SOAPYSDR "SoapySDR bindings for LimeSuiteNG")
-if(NOT ENABLE_SOAPYSDR)
-    return()
-endif()
-
-########################################################################
 ## Build support module
 ########################################################################
 soapy_sdr_module_util(TARGET Soapy_limesuiteng SOURCES Registration.cpp Settings.cpp Streaming.cpp LIBRARIES limesuiteng)

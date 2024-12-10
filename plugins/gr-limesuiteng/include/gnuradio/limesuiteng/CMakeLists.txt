@@ -9,6 +9,4 @@
 ########################################################################
 # Install public header files
 ########################################################################
-install(FILES api.h
-    sdrdevice_source.h
-    sdrdevice_sink.h DESTINATION include/gnuradio/limesuiteng)
+install(FILES api.h sdrdevice_source.h sdrdevice_sink.h DESTINATION include/gnuradio/limesuiteng)

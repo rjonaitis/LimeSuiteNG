@@ -1,17 +1,9 @@
-if(NOT UNIX)
-    return()
-endif()
-
-set(ENABLE_UDEV_RULES
-    ON
-    CACHE BOOL "Install Linux udev rules of Lime SDR devices")
-
-include(FeatureSummary)
-add_feature_info(UDEV_RULES ENABLE_UDEV_RULES "Install Linux udev rules")
-
-if(NOT ENABLE_UDEV_RULES)
-    return()
-endif()
+project(
+    limesuiteng-udev
+    DESCRIPTION "Linux UDEV rules for LimeSuiteNG supported devices"
+    VERSION 1.0.0.0
+    LANGUAGES NONE
+    HOMEPAGE_URL https://github.com/myriadrf/LimeSuiteNG/tree/develop/udev-rules)
 
 set(UDEV_RULES_INSTALL_PATH
     "/etc/udev/rules.d"
