@@ -161,7 +161,10 @@ endif(ENABLE_PYTHON)
 # Install cmake search helper for this library
 ########################################################################
 
-install(FILES cmake/Modules/gnuradio-limesuitengConfig.cmake DESTINATION ${GR_CMAKE_DIR})
+install(
+    FILES cmake/Modules/gnuradio-limesuitengConfig.cmake
+    DESTINATION ${GR_CMAKE_DIR}
+    COMPONENT GNURadio_plugin)
 
 include(CMakePackageConfigHelpers)
 configure_package_config_file(${PROJECT_SOURCE_DIR}/cmake/Modules/targetConfig.cmake.in
@@ -170,4 +173,5 @@ configure_package_config_file(${PROJECT_SOURCE_DIR}/cmake/Modules/targetConfig.c
 install(
     FILES MANIFEST.yml
     RENAME MANIFEST-${VERSION_MAJOR}.${VERSION_API}.${VERSION_ABI}${VERSION_PATCH}.yml
-    DESTINATION share/gnuradio/manifests/limesuiteng)
+    DESTINATION share/gnuradio/manifests/limesuiteng
+    COMPONENT GNURadio_plugin)

@@ -14,7 +14,10 @@ file(
 option(INSTALL_HEADERS "Enable install limesuiteng headers" ON)
 add_feature_info("INSTALL_HEADERS" INSTALL_HEADERS "Install limesuiteng headers")
 if(INSTALL_HEADERS)
-    install(FILES ${LIMESUITENG_PUBLIC_HEADERS} DESTINATION include/limesuiteng)
+    install(
+        FILES ${LIMESUITENG_PUBLIC_HEADERS}
+        DESTINATION include/limesuiteng
+        COMPONENT liblimesuiteng)
 endif()
 
 ########################################################################
@@ -26,13 +29,17 @@ if(INSTALL_HEADERS)
         ${PROJECT_BINARY_DIR}/limesuitengConfigVersion.cmake
         VERSION ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}
         COMPATIBILITY SameMinorVersion)
-    install(FILES ${PROJECT_BINARY_DIR}/limesuitengConfigVersion.cmake DESTINATION lib${LIB_SUFFIX}/cmake/${PROJECT_NAME})
+    install(
+        FILES ${PROJECT_BINARY_DIR}/limesuitengConfigVersion.cmake
+        DESTINATION lib${LIB_SUFFIX}/cmake/${PROJECT_NAME}
+        COMPONENT liblimesuiteng)
 
     install(
         EXPORT limesuitengTarget
         NAMESPACE limesuiteng::
         FILE limesuitengConfig.cmake
-        DESTINATION lib${LIB_SUFFIX}/cmake/${PROJECT_NAME})
+        DESTINATION lib${LIB_SUFFIX}/cmake/${PROJECT_NAME}
+        COMPONENT liblimesuiteng)
 
 endif(INSTALL_HEADERS)
 
@@ -129,7 +136,7 @@ install(
     LIBRARY DESTINATION lib${LIB_SUFFIX} # .so file
     ARCHIVE DESTINATION lib${LIB_SUFFIX} # .lib file
     RUNTIME DESTINATION bin # .dll file
-)
+            COMPONENT liblimesuiteng)
 
 # comms has to be processed before boards, to set up cmake variables needed for board support
 add_subdirectory(comms)
@@ -148,7 +155,10 @@ target_sources(limesuiteng PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/BoardSupportLoade
 if(INSTALL_HEADERS)
     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/limesuiteng.pc.in ${CMAKE_CURRENT_BINARY_DIR}/limesuiteng.pc @ONLY)
 
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/limesuiteng.pc DESTINATION lib${LIB_SUFFIX}/pkgconfig)
+    install(
+        FILES ${CMAKE_CURRENT_BINARY_DIR}/limesuiteng.pc
+        DESTINATION lib${LIB_SUFFIX}/pkgconfig
+        COMPONENT liblimesuiteng)
 endif(INSTALL_HEADERS)
 
 ########################################################################
