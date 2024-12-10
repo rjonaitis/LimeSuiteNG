@@ -146,9 +146,6 @@ add_subdirectory(DSP)
 add_subdirectory(examples)
 add_subdirectory(streaming)
 
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/boards/BoardSupportLoader.in.cpp ${CMAKE_CURRENT_BINARY_DIR}/BoardSupportLoader.cpp)
-target_sources(limesuiteng PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/BoardSupportLoader.cpp)
-
 ########################################################################
 # Build pkg config file
 ########################################################################
