@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
-#define DEBUG
+// #define DEBUG
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -31,7 +31,6 @@
 static int total_uart_counter = 0;
 
 #define LIMEMICROSYSTEMS_VENDOR_ID 0x2058
-#define LIMEMICROSYSTEMS_GENERIC_DEVICE_ID 0x0100
 
 #define XILINX_FPGA_VENDOR_ID 0x10EE
 #define XILINX_FPGA_DEVICE_ID 0x7022
@@ -799,7 +798,7 @@ static long limepcie_ioctl_trx(struct file *file, unsigned int cmd, unsigned lon
 
         if (copy_from_user(&m, (void *)arg, sizeof(m)))
         {
-            dev_dbg(&cdev->owner->pciContext->dev, "LIMEPCIE_IOCTL_MMAP_DMA_READER_UPDATE copy_from_user fail");
+            dev_err(&cdev->owner->pciContext->dev, "LIMEPCIE_IOCTL_MMAP_DMA_READER_UPDATE copy_from_user fail");
             ret = -EFAULT;
             break;
         }
@@ -813,7 +812,7 @@ static long limepcie_ioctl_trx(struct file *file, unsigned int cmd, unsigned lon
 
         if (copy_from_user(&m, (void *)arg, sizeof(m)))
         {
-            dev_dbg(&cdev->owner->pciContext->dev, "LIMEPCIE_IOCTL_CACHE_FLUSH copy_from_user fail");
+            dev_err(&cdev->owner->pciContext->dev, "LIMEPCIE_IOCTL_CACHE_FLUSH copy_from_user fail");
             ret = -EFAULT;
             break;
         }
@@ -1339,7 +1338,7 @@ static int try_set_dma_bitmask(struct device *sysDev, uint32_t bitCount)
 
     ret = 0;
     uint64_t physicallAddress = virt_to_phys(memoryBuffer);
-    dev_dbg(sysDev, "%s(%i): test buffer va:%p pa:%llx bus:%llx\n", __func__, bitCount, memoryBuffer, physicallAddress, dma_bus);
+    dev_info(sysDev, "%s(%i): test buffer va:%p pa:%llx bus:%llx\n", __func__, bitCount, memoryBuffer, physicallAddress, dma_bus);
     if (dma_bus & ~mask)
     {
         dev_err(sysDev, "DMA bus address is outside of requested mask.\n");
@@ -1351,26 +1350,25 @@ static int try_set_dma_bitmask(struct device *sysDev, uint32_t bitCount)
     return ret;
 }
 
-static int set_dma_addressing_mask(struct device *sysDev)
+static int set_dma_addressing_mask(struct device *sysDev, const uint32_t *bitCounts, int count)
 {
     const uint64_t required_dma_mask = dma_get_required_mask(sysDev);
-    dev_dbg(sysDev, "dma_get_required_mask: %llx.\n", required_dma_mask);
-    int ret = try_set_dma_bitmask(sysDev, 32);
-    if (ret)
+    dev_info(sysDev, "dma_get_required_mask: %llx.\n", required_dma_mask);
+    for (int i = 0; i < count; ++i)
     {
-        dev_err(sysDev, "Failed to set DMA mask 32bit. \n");
-        ret = try_set_dma_bitmask(sysDev, 64);
-        if (ret)
-            return ret;
+        int ret = try_set_dma_bitmask(sysDev, bitCounts[i]);
+        if (ret == 0)
+        {
+            dev_info(sysDev, "using %ibit DMA mask\n", bitCounts[i]);
+            return 0;
+        }
         else
-            dev_info(sysDev, "using 64bit dma\n");
+            dev_err(sysDev, "Failed to set DMA mask %ibit.\n", bitCounts[i]);
     }
-    else
-        dev_info(sysDev, "using 32bit dma\n");
-    return 0;
+    return -1;
 }
 
-static int limepcie_device_init(struct limepcie_device *myDevice, struct pci_dev *pciContext)
+static int limepcie_device_init(struct limepcie_device *myDevice, struct pci_dev *pciContext, const struct pci_device_id *id)
 {
     struct device *sysDev = &pciContext->dev;
     myDevice->pciContext = pciContext;
@@ -1392,7 +1390,16 @@ static int limepcie_device_init(struct limepcie_device *myDevice, struct pci_dev
     pcie_print_link_status(pciContext);
     pci_set_master(pciContext);
 
-    ret = set_dma_addressing_mask(sysDev);
+    // configure DMA bit addressing mask
+    // Devices with LIMEMICROSYSTEMS_VENDOR_ID all have 64bit dma support
+    // other devices might have only 32bit support, start with 32bit, if host system (i.e. Arm) requires more, attempt 64bit mask
+    uint32_t bitCountOrder[] = {64, 32};
+    if (id->vendor != LIMEMICROSYSTEMS_VENDOR_ID)
+    {
+        bitCountOrder[0] = 32;
+        bitCountOrder[1] = 64;
+    }
+    ret = set_dma_addressing_mask(sysDev, bitCountOrder, 2);
     if (ret < 0)
         return -1;
 
@@ -1507,7 +1514,7 @@ static int limepcie_pci_probe(struct pci_dev *pciContext, const struct pci_devic
         return -ENOMEM;
     }
 
-    int ret = limepcie_device_init(myDevice, pciContext);
+    int ret = limepcie_device_init(myDevice, pciContext, id);
     if (ret < 0)
     {
         dev_err(sysDev, "Probe fail:\n");
@@ -1530,7 +1537,9 @@ static void limepcie_pci_device_remove(struct pci_dev *pciContext)
 static const struct pci_device_id limepcie_pci_ids[] = {{PCI_DEVICE(XILINX_FPGA_VENDOR_ID, XILINX_FPGA_DEVICE_ID)},
     {PCI_DEVICE(XILINX_FPGA_VENDOR_ID, XTRX_FPGA_DEVICE_ID)},
     {PCI_DEVICE(ALTERA_FPGA_VENDOR_ID, ALTERA_FPGA_DEVICE_ID)},
-    {PCI_DEVICE(LIMEMICROSYSTEMS_VENDOR_ID, LIMEMICROSYSTEMS_GENERIC_DEVICE_ID)},
+    {PCI_DEVICE(LIMEMICROSYSTEMS_VENDOR_ID, 26)}, // X3
+    {PCI_DEVICE(LIMEMICROSYSTEMS_VENDOR_ID, 27)}, // XTRX
+    {PCI_DEVICE(LIMEMICROSYSTEMS_VENDOR_ID, 28)}, // X8
     {0}};
 MODULE_DEVICE_TABLE(pci, limepcie_pci_ids);
 

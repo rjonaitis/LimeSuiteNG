@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.5)
 
 project(
     limepcie
-    VERSION 0.1.7
+    VERSION 0.1.8
     LANGUAGES C)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_LIST_DIR}/cmake")
 include(add_kernel_module)
