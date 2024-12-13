@@ -7,8 +7,7 @@ project(
 
 # common functionality among cli tools
 add_library(cli-shared STATIC common.cpp)
-target_include_directories(cli-shared PUBLIC ${CMAKE_CURRENT_LIST_DIR})
-target_link_libraries(cli-shared PUBLIC limesuiteng taywee::args)
+target_link_libraries(cli-shared PUBLIC limesuiteng taywee-args)
 
 target_precompile_headers(cli-shared PRIVATE ${CPP_STL_PCH} \"args.hxx\")
 
@@ -44,5 +43,5 @@ target_precompile_headers(limeOEM REUSE_FROM cli-shared)
 
 install(
     TARGETS limeDevice limeSPI limeFLASH limeTRX limeConfig limeOEM
-    DESTINATION bin
-    COMPONENT CLI)
+    COMPONENT cli
+    DESTINATION bin)

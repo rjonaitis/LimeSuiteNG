@@ -12,4 +12,4 @@
 install(
     FILES api.h sdrdevice_source.h sdrdevice_sink.h
     DESTINATION include/gnuradio/limesuiteng
-    COMPONENT GNURadio_plugin)
+    COMPONENT gr-limesuiteng)

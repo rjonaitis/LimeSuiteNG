@@ -1,5 +1,4 @@
 # Download and compile needed externals
-cmake_minimum_required(VERSION 3.15)
 include(FetchContent)
 
 #########################################################################
@@ -101,7 +100,9 @@ set(ARGS_BUILD_UNITTESTS
 fetchcontent_getproperties(args)
 if(NOT args_POPULATED)
     fetchcontent_populate(args)
-    add_subdirectory(${args_SOURCE_DIR} ${args_BINARY_DIR} EXCLUDE_FROM_ALL)
+    add_library(taywee-args INTERFACE)
+    target_include_directories(taywee-args INTERFACE ${args_SOURCE_DIR})
+    # add_subdirectory(${args_SOURCE_DIR} ${args_BINARY_DIR} EXCLUDE_FROM_ALL)
 endif()
 
 #########################################################################
@@ -129,9 +130,8 @@ fetchcontent_declare(
     CONFIGURE_COMMAND "" BUILD_COMMAND "" EXCLUDE_FROM_ALL)
 
 # Exclude from all for pre-CMake 3.28
-fetchcontent_getproperties(args)
-if(NOT args_POPULATED)
+fetchcontent_getproperties(rang)
+if(NOT rang_POPULATED)
     fetchcontent_populate(rang)
-    add_subdirectory(${rang_SOURCE_DIR} ${args_BINARY_DIR} EXCLUDE_FROM_ALL)
+    add_subdirectory(${rang_SOURCE_DIR} ${rang_BINARY_DIR} EXCLUDE_FROM_ALL)
 endif()
-fetchcontent_makeavailable(rang)

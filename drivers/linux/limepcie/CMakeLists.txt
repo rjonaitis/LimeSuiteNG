@@ -1,6 +1,9 @@
+if(NOT DEFINED CMAKE_MINIMUM_REQUIRED_VERSION)
+    cmake_minimum_required(VERSION 3.15)
+endif()
+
 include(FeatureSummary)
 include(CMakeDependentOption)
-cmake_minimum_required(VERSION 3.5)
 
 project(
     limepcie

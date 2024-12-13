@@ -11,7 +11,7 @@
 #include <cmath>
 #include <csignal>
 #include "args.hxx"
-#include "common.h"
+#include "../../cli/common.h"
 
 using namespace lime;
 using namespace std::literals::string_view_literals;

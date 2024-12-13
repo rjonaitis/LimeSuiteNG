@@ -1,23 +1,18 @@
+cmake_minimum_required(VERSION 3.15)
 include(FeatureSummary)
 include(CMakeDependentOption)
 
-cmake_minimum_required(VERSION 3.15)
+# set(FETCHCONTENT_BASE_DIR ${PROJECT_SOURCE_DIR}/external/_deps)
+
 project(
     "LimeSuiteNG"
     VERSION 0.4.0.0
     LANGUAGES C CXX)
 message(STATUS "cmake version: ${CMAKE_VERSION}")
 
-# set(CPACK_PACKAGE_NAME "LimeSuiteNG-bundle")
-# set(CPACK_PACKAGE_VENDOR "MyriadRF")
-# set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
-#     "LimeSuiteNG bundle for LimeSDR devices")
-# set(CPACK_DEBIAN_PACKAGE_DEPENDS "")
-# set(CPACK_PACKAGE_CONTACT "info@limemicro.com")
-# set(CPACK_DEBIAN_PACKAGE_MAINTAINER "info@limemicro.com")
-# set(CPACK_THREADS 0)
-# set(CPACK_SOURCE_GENERATOR "TGZ;ZIP")
-# set(CPACK_SOURCE_IGNORE_FILES "CVS/;/.git/;.swp$;.#;/#;.*~;build/*;pack/*" )
+#include modules for finding CyAPI
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/")
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/")
 
 ########################################################################
 # Gather version information from the changelog
@@ -31,9 +26,6 @@ endif(NOT CHANGELOG_MATCH)
 set(VERSION_MAJOR "${CMAKE_MATCH_1}")
 set(VERSION_MINOR "${CMAKE_MATCH_2}")
 set(VERSION_PATCH "${CMAKE_MATCH_3}")
-
-# set(CPACK_PACKAGE_INSTALL_DIRECTORY "CPackComponentExample")
-# This must always be after all CPACK\_\* variables are defined
 
 set(CMAKE_CONFIGURATION_TYPES
     "Debug;Release;RelWithDebInfo"
@@ -52,9 +44,6 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(BUILD_SHARED_LIBS "Build the shared library" ON)
 option(ENABLE_NEW_GAIN_BEHAVIOUR "Enable new gain functionality" OFF)
-
-#include modules for finding CyAPI
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/")
 
 list(FIND CMAKE_CONFIGURATION_TYPES "${CMAKE_BUILD_TYPE}" index)
 if(${index} EQUAL -1)
@@ -357,6 +346,7 @@ endif()
 #########################################################################
 # GTest tests
 #########################################################################
+option(ENABLE_UNIT_TESTS "Use GoogleTest to test the library" OFF)
 if(ENABLE_UNIT_TESTS)
     enable_testing()
     add_subdirectory(tests)
@@ -383,16 +373,15 @@ endif()
 ########################################################################
 ## Doxygen
 ########################################################################
-option(BUILD_DOCS "Generate documentation using Doxygen" ON)
-add_feature_info("BUILD_DOCS" BUILD_DOCS "Install Linux udev rules for LimeSDR devices")
-if(BUILD_DOCS)
-    add_subdirectory(docs/doxygen)
-endif()
+# option(BUILD_DOCS "Generate documentation" ON)
+# add_feature_info("BUILD_DOCS" BUILD_DOCS "Build documentation")
+# if(BUILD_DOCS)
+#     add_subdirectory(docs/doxygen)
+# endif()
 
 #########################################################################
 # summary
 #########################################################################
-include(FeatureSummary)
 message(STATUS "")
 message(STATUS "######################################################")
 feature_summary(WHAT PACKAGES_FOUND DESCRIPTION "Packages found:")
@@ -419,4 +408,20 @@ message(STATUS "Build timestamp: ${BUILD_TIMESTAMP}")
 message(STATUS "Lime Suite version: ${LIME_SUITE_VERSION}")
 message(STATUS "ABI/so version: ${LIME_SUITE_SOVER}")
 
-# include(CPack)
+include(CPack)
+
+cpack_add_component(
+    dev
+    DISPLAY_NAME "LimeSuiteNG headers & development files"
+    DEPENDS runtime)
+
+cpack_add_component(
+    cli
+    DISPLAY_NAME "Command Line Interface tools"
+    DEPENDS runtime)
+
+# cpack_add_component(
+#     legacyapi
+#     DISPLAY_NAME "Legacy API wrapper"
+#     DEPENDS runtime)
+

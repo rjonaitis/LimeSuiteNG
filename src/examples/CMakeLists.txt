@@ -32,6 +32,6 @@ set_target_properties(basicTX PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${examplesOutp
 target_link_libraries(
     basicTX
     PRIVATE limesuiteng
-    PRIVATE cli-shared kissfft taywee::args)
+    PRIVATE cli-shared kissfft taywee-args)
 
 add_subdirectory(legacy)

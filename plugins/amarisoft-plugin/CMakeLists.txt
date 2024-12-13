@@ -1,4 +1,7 @@
-cmake_minimum_required(VERSION 3.9)
+if(NOT DEFINED CMAKE_MINIMUM_REQUIRED_VERSION)
+    cmake_minimum_required(VERSION 3.15)
+endif()
+
 project("limesuiteng-amarisoft-plugin")
 
 set(CMAKE_CONFIGURATION_TYPES

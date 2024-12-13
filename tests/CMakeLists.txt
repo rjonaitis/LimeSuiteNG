@@ -3,14 +3,6 @@
 ########################################################################
 include(CMakeDependentOption)
 include(FeatureSummary)
-option(ENABLE_UNIT_TESTS "Use GoogleTest to test the library" OFF)
-add_feature_info(TESTING ENABLE_UNIT_TESTS "Build GoogleTest tests to test the library")
-cmake_dependent_option(ENABLE_CODE_COVERAGE "Use gcov/lcov to generate a code coverage report" ON "ENABLE_UNIT_TESTS" OFF)
-
-if(NOT ENABLE_UNIT_TESTS)
-    return()
-endif()
-
 include(FetchContent)
 fetchcontent_declare(
     googletest
@@ -93,6 +85,7 @@ endif()
 # include(GoogleTest)
 # gtest_discover_tests(${TESTS_CONTAINER_TARGET})
 
+# cmake_dependent_option(ENABLE_CODE_COVERAGE "Use gcov/lcov to generate a code coverage report" ON "ENABLE_UNIT_TESTS" OFF)
 # if(CMAKE_BUILD_TYPE STREQUAL "Debug"
 #    AND ENABLE_CODE_COVERAGE
 #    AND (NOT MSVC))

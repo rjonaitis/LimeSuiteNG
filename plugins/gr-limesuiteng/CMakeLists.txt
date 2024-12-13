@@ -16,7 +16,9 @@ set(CMAKE_BUILD_TYPE
 ########################################################################
 # Project setup
 ########################################################################
-cmake_minimum_required(VERSION 3.8)
+if(NOT DEFINED CMAKE_MINIMUM_REQUIRED_VERSION)
+    cmake_minimum_required(VERSION 3.15)
+endif()
 project(gr-limesuiteng CXX C)
 enable_testing()
 
@@ -26,7 +28,7 @@ if(NOT ${CMAKE_PROJECT_NAME} EQUAL ${PROJECT_NAME})
     include(CMakeDependentOption)
     include(FeatureSummary)
     cmake_dependent_option(BUILD_PLUGINS_GNURADIO "Build gr-limesuiteng plugin for GNU Radio" ON "Gnuradio_FOUND" OFF)
-    add_feature_info("BUILD_PLUGIN_GNURADIO" BUILD_PLUGINS_GNURADIO "GNU Radio 3.9+ Plug-in")
+    add_feature_info("BUILD_PLUGINS_GNURADIO" BUILD_PLUGINS_GNURADIO "GNU Radio 3.9+ Plug-in")
     if(NOT BUILD_PLUGINS_GNURADIO)
         return()
     endif()
@@ -164,7 +166,7 @@ endif(ENABLE_PYTHON)
 install(
     FILES cmake/Modules/gnuradio-limesuitengConfig.cmake
     DESTINATION ${GR_CMAKE_DIR}
-    COMPONENT GNURadio_plugin)
+    COMPONENT gr-limesuiteng)
 
 include(CMakePackageConfigHelpers)
 configure_package_config_file(${PROJECT_SOURCE_DIR}/cmake/Modules/targetConfig.cmake.in
@@ -174,4 +176,4 @@ install(
     FILES MANIFEST.yml
     RENAME MANIFEST-${VERSION_MAJOR}.${VERSION_API}.${VERSION_ABI}${VERSION_PATCH}.yml
     DESTINATION share/gnuradio/manifests/limesuiteng
-    COMPONENT GNURadio_plugin)
+    COMPONENT gr-limesuiteng)

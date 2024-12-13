@@ -1,3 +1,7 @@
+if(NOT DEFINED CMAKE_MINIMUM_REQUIRED_VERSION)
+    cmake_minimum_required(VERSION 3.15)
+endif()
+
 project(
     "limesuiteng-gui"
     DESCRIPTION "LimeSuiteNG Graphical User Interface application"
@@ -179,4 +183,4 @@ endif(WIN32)
 install(
     TARGETS limeGUI
     DESTINATION bin
-    COMPONENT GUI)
+    COMPONENT gui)

@@ -37,4 +37,4 @@ add_custom_command(
 install(
     TARGETS limesuiteng_python
     DESTINATION ${GR_PYTHON_DIR}/gnuradio/limesuiteng
-    COMPONENT pythonapi)
+    COMPONENT gr-limesuiteng)

@@ -19,7 +19,7 @@ add_subdirectory(bindings)
 ########################################################################
 # Install python sources
 ########################################################################
-gr_python_install(FILES __init__.py DESTINATION ${GR_PYTHON_DIR}/gnuradio/limesuiteng COMPONENT GNURadio_plugin)
+gr_python_install(FILES __init__.py DESTINATION ${GR_PYTHON_DIR}/gnuradio/limesuiteng COMPONENT gr-limesuiteng)
 
 ########################################################################
 # Handle the unit tests

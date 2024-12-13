@@ -1,7 +1,7 @@
 #ifndef LIME_LIMESDR_H
 #define LIME_LIMESDR_H
 
-#include "LMS7002M_SDRDevice.h"
+#include "boards/LMS7002M_SDRDevice.h"
 #include "protocols/LMS64CProtocol.h"
 
 #include <vector>
