@@ -132,7 +132,7 @@ set_source_files_properties(
 set_source_files_properties(
     oglGraph/dlgMarkers.cpp oglGraph//GLFont.cpp oglGraph/OpenGLGraph.cpp PROPERTIES SKIP_UNITY_BUILD_INCLUSION true)
 
-target_include_directories(limeGUI PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} FPGAcontrols_wxgui numericSlider fftviewer_wxgui GUI)
+target_include_directories(limeGUI PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} numericSlider fftviewer_wxgui GUI)
 
 add_subdirectory(boards)
 add_subdirectory(chips)
