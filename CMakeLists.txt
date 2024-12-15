@@ -10,6 +10,11 @@ project(
     LANGUAGES C CXX)
 message(STATUS "cmake version: ${CMAKE_VERSION}")
 
+set(CPACK_INSTALL_DEFAULT_DIRECTORY_PERMISSIONS
+    OWNER_READ OWNER_WRITE OWNER_EXECUTE
+    GROUP_READ GROUP_EXECUTE
+    WORLD_READ WORLD_EXECUTE)
+
 #include modules for finding CyAPI
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/")
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/")
@@ -408,20 +413,10 @@ message(STATUS "Build timestamp: ${BUILD_TIMESTAMP}")
 message(STATUS "Lime Suite version: ${LIME_SUITE_VERSION}")
 message(STATUS "ABI/so version: ${LIME_SUITE_SOVER}")
 
+# Common packaging info, must be set before 'include(CPack)'
+include(packages/CPackProperties.cmake)
+
 include(CPack)
 
-cpack_add_component(
-    dev
-    DISPLAY_NAME "LimeSuiteNG headers & development files"
-    DEPENDS runtime)
-
-cpack_add_component(
-    cli
-    DISPLAY_NAME "Command Line Interface tools"
-    DEPENDS runtime)
-
-# cpack_add_component(
-#     legacyapi
-#     DISPLAY_NAME "Legacy API wrapper"
-#     DEPENDS runtime)
-
+# Uses cpack_* functions, that are available only after 'include(CPack)'
+include(packages/CPackComponentsMeta.cmake)
