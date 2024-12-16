@@ -480,7 +480,7 @@ ISOCPanel* CreateGUI(wxWindow* parent, eDeviceTreeNodeClass DeviceTreeNodeClass,
         return sdrPanel;
     }
     default:
-        lime::warning("Unrecognized device class(%u)", static_cast<uint8_t>(DeviceTreeNodeClass));
+        // lime::warning("No GUI available for this device node class(%u)", static_cast<uint8_t>(DeviceTreeNodeClass));
         return nullptr;
     }
 }
