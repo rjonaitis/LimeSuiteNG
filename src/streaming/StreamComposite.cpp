@@ -123,7 +123,7 @@ uint32_t StreamComposite::StreamRx_T(T* const* samples, uint32_t count, StreamMe
         return count;
 
     bool misalignedTimestamps{ false };
-    for (uint32_t i = 1; i < mConfig.channels[TRXDir::Rx].size(); ++i)
+    for (uint32_t i = 1; i < subDeviceCount; ++i)
     {
         if (subDeviceMeta[i].timestamp != subDeviceMeta[0].timestamp)
         {
