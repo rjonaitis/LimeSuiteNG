@@ -668,7 +668,7 @@ static OpStatus TransferDeviceDirectionalSettings(
     return OpStatus::Success;
 }
 
-static OpStatus TransferSettingsToDevicesConfig(std::vector<DevNode>& nodes)
+static OpStatus TransferSettingsToDevicesConfig(std::vector<DevNode>& nodes, LimeSettingsProvider* settings)
 {
     for (size_t i = 0; i < nodes.size(); ++i)
     {
@@ -686,6 +686,15 @@ static OpStatus TransferSettingsToDevicesConfig(std::vector<DevNode>& nodes)
             status = TransferDeviceDirectionalSettings(node, node.configInputs.tx, node.config.channel[ch].tx, TRXDir::Tx);
             if (status != OpStatus::Success)
                 return status;
+        }
+
+        for (int ch = 0; ch < 2; ++ch)
+        {
+            double dac = 0;
+            if (GetSetting(settings, &dac, "dev%i_ch%i_pa_dac", node.devIndex, ch))
+            {
+                node.config.channel[ch].tx.gain[lime::eGainTypes::PA] = dac;
+            }
         }
     }
     return OpStatus::Success;
@@ -732,67 +741,7 @@ int LimePlugin_Init(LimePluginContext* context, lime::SDRDevice::LogCallbackType
         if (LoadDevicesConfigurationFile(context) != OpStatus::Success)
             return -1;
 
-        TransferSettingsToDevicesConfig(context->rfdev);
-
-        // load power settings
-        /*    for (int p = 0; p < TRX_MAX_RF_PORT; ++p)
-        {
-            // absolute gain info
-            for (int ch = 0; ch < TRX_MAX_CHANNELS; ++ch)
-            {
-                double dac = 0;
-                std::snprintf(varname, sizeof(varname), "port%i_ch%i_pa_dac", p, ch);
-                if (trx_get_param_double(hostState, &dac, varname) == 0)
-                {
-                    // TODO: this is board specific, need general API
-                    int32_t paramId = 2 + ch;
-                    std::string units = ""s;
-                    s->device[p]->CustomParameterWrite({ { paramId, dac, units } });
-                }
-            }
-
-            StreamConfig::Extras* extra = new StreamConfig::Extras();
-
-            std::snprintf(varname, sizeof(varname), "port%i_syncPPS", p);
-            if (trx_get_param_double(hostState, &val, varname) == 0)
-            {
-                extra->waitPPS = val != 0;
-                s->streamExtras[p] = extra;
-            }
-            std::snprintf(varname, sizeof(varname), "port%i_rxSamplesInPacket", p);
-            if (trx_get_param_double(hostState, &val, varname) == 0)
-            {
-                extra->rxSamplesInPacket = val;
-                s->streamExtras[p] = extra;
-            }
-            std::snprintf(varname, sizeof(varname), "port%i_rxPacketsInBatch", p);
-            if (trx_get_param_double(hostState, &val, varname) == 0)
-            {
-                extra->rxPacketsInBatch = val;
-                s->streamExtras[p] = extra;
-            }
-            std::snprintf(varname, sizeof(varname), "port%i_txMaxPacketsInBatch", p);
-            if (trx_get_param_double(hostState, &val, varname) == 0)
-            {
-                extra->txMaxPacketsInBatch = val;
-                s->streamExtras[p] = extra;
-            }
-            std::snprintf(varname, sizeof(varname), "port%i_txSamplesInPacket", p);
-            if (trx_get_param_double(hostState, &val, varname) == 0)
-            {
-                extra->txSamplesInPacket = val;
-                s->streamExtras[p] = extra;
-            }
-            std::snprintf(varname, sizeof(varname), "port%i_double_freq_conversion_to_lower_side", p);
-            if (trx_get_param_double(hostState, &val, varname) == 0)
-            {
-                extra->negateQ = val;
-                s->streamExtras[p] = extra;
-            }
-        }
-
-        s->samplesFormat = lime::StreamConfig::F32;
-*/
+        TransferSettingsToDevicesConfig(context->rfdev, configProvider);
     } catch (std::logic_error& e)
     {
         fprintf(stderr, "Logic error: %s", e.what());

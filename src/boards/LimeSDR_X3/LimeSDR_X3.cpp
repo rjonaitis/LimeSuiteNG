@@ -588,6 +588,19 @@ OpStatus LimeSDR_X3::Configure(const SDRConfig& cfg, uint8_t socIndex)
             // enabled ADC/DAC is required for FPGA to work
             chip->Modify_SPI_Reg_bits(PD_RX_AFE1, 0);
             chip->Modify_SPI_Reg_bits(PD_TX_AFE1, 0);
+
+            // set PA gains
+            for (int ch = 0; ch < 2; ++ch)
+            {
+                auto gainIter = cfg.channel[ch].tx.gain.find(eGainTypes::PA);
+                if (gainIter != cfg.channel[ch].tx.gain.end())
+                {
+                    int32_t paramId = 2 + ch;
+                    const std::string units = ""s;
+                    double dac = gainIter->second;
+                    CustomParameterWrite({ { paramId, dac, units } });
+                }
+            }
         }
         chip->SetActiveChannel(LMS7002M::Channel::ChA);
 
