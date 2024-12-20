@@ -241,7 +241,14 @@ static OpStatus MapChannelsToDevices(
         int port_channel_count = dir == TRXDir::Tx ? params.rf_ports[p].tx_channel_count : params.rf_ports[p].rx_channel_count;
 
         std::deque<DevNode*> assignedDevices;
-        copy(ports[p].nodes.begin(), ports[p].nodes.end(), assignedDevices.begin());
+        for (const auto& iter : ports[p].nodes)
+            assignedDevices.push_back(iter);
+
+        if (assignedDevices.empty())
+        {
+            Log(LogLevel::Error, "No devices are assigned to ports.");
+            return OpStatus::Error;
+        }
 
         int remainingChannels = assignedDevices.front()->configInputs.maxChannelsToUse;
         int chipRelativeChannelIndex = 0;
@@ -304,7 +311,10 @@ int LimePlugin_Stop(LimePluginContext* context)
     for (auto& port : context->ports)
     {
         if (port.stream)
+        {
             port.stream->Stop();
+            port.stream.reset();
+        }
     }
     return 0;
 }
