@@ -121,8 +121,7 @@ target_include_directories(
     PRIVATE threadHelper
     PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}> # so that GUI build can access internal headers
            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-           $<INSTALL_INTERFACE:include>
-    INTERFACE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/external>)
+           $<INSTALL_INTERFACE:include>)
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug"
    AND ENABLE_CODE_COVERAGE
@@ -155,7 +154,7 @@ option(BUILD_LEGACYAPI "Build legacy LMS_API" ON)
 if(BUILD_LEGACYAPI)
     add_library(limesuiteng-legacyapi API/LMS_APIWrapper.cpp)
     target_include_directories(
-        limesuiteng-legacyapi PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>)
+        limesuiteng-legacyapi PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include> $<INSTALL_INTERFACE:include>)
     target_link_libraries(limesuiteng-legacyapi PUBLIC limesuiteng)
 
     install(
