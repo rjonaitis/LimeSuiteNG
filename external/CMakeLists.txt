@@ -82,9 +82,9 @@ set(CMAKE_BUILD_TYPE ${CMAKE_BUILD_TYPE_ORIG})
 #########################################################################
 fetchcontent_declare(
     args
-    GIT_REPOSITORY https://github.com/Taywee/args.git
-    GIT_TAG cc2368ca0d8a962862c96c00fe919e1480050f51 # latest main at the time of writing this
-    EXCLUDE_FROM_ALL # CMake 3.28+
+    # GIT_REPOSITORY https://github.com/Taywee/args.git
+    # GIT_TAG 30cbfdc69ab65bf9df78b811a9ae19a923ae84c9 # latest main at the time of writing this
+    URL ${CMAKE_CURRENT_LIST_DIR}/args.zip EXCLUDE_FROM_ALL # CMake 3.28+
 )
 set(ARGS_MAIN_PROJECT
     OFF
@@ -99,6 +99,7 @@ set(ARGS_BUILD_UNITTESTS
 # Exclude from all for pre-CMake 3.28
 fetchcontent_getproperties(args)
 if(NOT args_POPULATED)
+    # populating manually, so that only the code would be used, and avoid subproject's CMake installs
     fetchcontent_populate(args)
     add_library(taywee-args INTERFACE)
     target_include_directories(taywee-args INTERFACE ${args_SOURCE_DIR})
@@ -110,9 +111,9 @@ endif()
 #########################################################################
 fetchcontent_declare(
     cpp-feather-ini-parser
-    GIT_REPOSITORY https://github.com/rjonaitis/cpp-feather-ini-parser
-    GIT_TAG 85a7d3a89dd0e179587a87b8d12ea58a896e7881 # latest main at the time of writing this
-    CONFIGURE_COMMAND "" BUILD_COMMAND "" EXCLUDE_FROM_ALL)
+    # GIT_REPOSITORY https://github.com/rjonaitis/cpp-feather-ini-parser
+    # GIT_TAG 85a7d3a89dd0e179587a87b8d12ea58a896e7881 # latest main at the time of writing this
+    URL ${CMAKE_CURRENT_LIST_DIR}/cpp-feather-ini-parser.zip CONFIGURE_COMMAND "" BUILD_COMMAND "" EXCLUDE_FROM_ALL)
 
 fetchcontent_makeavailable(cpp-feather-ini-parser)
 
@@ -125,9 +126,9 @@ target_include_directories(cpp-feather-ini-parser INTERFACE ${cpp-feather-ini-pa
 #########################################################################
 fetchcontent_declare(
     rang
-    GIT_REPOSITORY https://github.com/agauniyal/rang
-    GIT_TAG 22345aa4c468db3bd4a0e64a47722aad3518cc81
-    CONFIGURE_COMMAND "" BUILD_COMMAND "" EXCLUDE_FROM_ALL)
+    # GIT_REPOSITORY https://github.com/agauniyal/rang
+    # GIT_TAG 22345aa4c468db3bd4a0e64a47722aad3518cc81
+    URL ${CMAKE_CURRENT_LIST_DIR}/rang.zip CONFIGURE_COMMAND "" BUILD_COMMAND "" EXCLUDE_FROM_ALL)
 
 # Exclude from all for pre-CMake 3.28
 fetchcontent_getproperties(rang)
