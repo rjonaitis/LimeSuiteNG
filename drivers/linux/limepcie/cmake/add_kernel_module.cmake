@@ -29,7 +29,7 @@ function(add_kernel_module)
     endif()
 
     # where Kbuild file will be placed
-    set(KBUILD_FILE_DIR "${CMAKE_CURRENT_BINARY_DIR}/${KMOD_NAME}-src")
+    set(KBUILD_FILE_DIR "${CMAKE_CURRENT_BINARY_DIR}/${KMOD_NAME}-${PROJECT_VERSION}")
 
     # Generate the Kbuild file through cmake.
     set(KBUILD_INCLUDE_DIR_FLAGS "")
@@ -51,6 +51,29 @@ function(add_kernel_module)
 
     set(KBUILD_CLEAN_CMD $(MAKE) -C ${KERNEL_SOURCE_DIR} ARCH=${KMOD_ARCH} M=${KBUILD_FILE_DIR} clean)
 
+    # set(MODULE_SOURCE_TARBALL "${CMAKE_CURRENT_BINARY_DIR}/${KMOD_NAME}.tar.gz")
+    # set(MAKE_SOURCE_TARBALL ${CMAKE_COMMAND} -E tar "cfvz" "${MODULE_SOURCE_TARBALL}" "${KBUILD_FILE_DIR}")
+    add_custom_target(${KMOD_NAME} ALL DEPENDS ${MODULE_KOBJECT})
+
+    # add_custom_command(TARGET ${KMOD_NAME}
+    #     PRE_BUILD
+    #     COMMAND ${KBUILD_CLEAN_CMD}
+    #     WORKING_DIRECTORY ${KBUILD_FILE_DIR}
+    #     DEPENDS ${CMAKE_CURRENT_LIST_DIR} # rebuild if anything changes in the source dir
+    #     VERBATIM
+    #     COMMENT "Clean module (${KMOD_NAME}) in dir: ${KBUILD_FILE_DIR}")
+
+    # add_custom_command(
+    #     OUTPUT ${MODULE_SOURCE_TARBALL}
+    #     BYPRODUCTS ${MODULE_SOURCE_TARBALL}
+    #     COMMAND ${KBUILD_CLEAN_CMD}
+    #     COMMAND ${MAKE_SOURCE_TARBALL}
+    #     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    #     DEPENDS ${CMAKE_CURRENT_LIST_DIR} # rebuild if anything changes in the source dir
+    #     VERBATIM
+    #     COMMENT "Generate kernel module tarball ${CMAKE_CURRENT_BINARY_DIR}/${MODULE_SOURCE_TARBALL}")
+    # add_custom_target(${KMOD_NAME}-tarball ALL DEPENDS ${MODULE_SOURCE_TARBALL})
+
     add_custom_command(
         OUTPUT ${MODULE_KOBJECT}
         COMMAND ${KBUILD_CLEAN_CMD}
@@ -60,7 +83,6 @@ function(add_kernel_module)
         VERBATIM
         COMMENT "Building Linux kernel module (${KMOD_NAME}) in dir: ${KBUILD_FILE_DIR}")
 
-    add_custom_target(${KMOD_NAME} ALL DEPENDS ${MODULE_KOBJECT})
     set_target_properties(${KMOD_NAME} PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${KBUILD_FILE_DIR})
     if(KMOD_VERSION)
         set_target_properties(${KMOD_NAME} PROPERTIES VERSION ${KMOD_VERSION})
@@ -92,10 +114,10 @@ function(add_kernel_module)
     file(
         WRITE ${KBUILD_FILE_DIR}/Kbuild
         "ccflags-y += -Wno-declaration-after-statement
-    ccflags-y += -std=gnu11
-    ccflags-y += ${KBUILD_INCLUDE_DIR_FLAGS}
-    obj-m = ${KMOD_NAME}.o
-    ${KMOD_NAME}-y := ${KERNEL_OBJECTS_RELATIVE_PATHS}
+ccflags-y += -std=gnu11
+ccflags-y += ${KBUILD_INCLUDE_DIR_FLAGS}
+obj-m = ${KMOD_NAME}.o
+${KMOD_NAME}-y := ${KERNEL_OBJECTS_RELATIVE_PATHS}
 ")
 
     # Simple MakeFile to build and clean. Makefile requires tabs for indendation
@@ -105,6 +127,8 @@ function(add_kernel_module)
 KERNEL_DIR ?= /lib/modules/`uname -r`/build
 default:
 \tmake -C $(KERNEL_DIR) M=$$PWD modules
+install:
+\tmake -C $(KERNEL_DIR) M=$$PWD INSTALL_MOD_DIR=extra modules_install
 clean:
 \tmake -C $(KERNEL_DIR) M=$$PWD clean
 \trm -f *~
@@ -163,6 +187,9 @@ function(install_kernel_module_modprobe)
 
     get_target_property(OBJECTS_DIR ${KMOD_INSTALL_NAME} LIBRARY_OUTPUT_DIRECTORY)
     install(FILES "${OBJECTS_DIR}/${KMOD_INSTALL_NAME}.ko" DESTINATION /lib/modules/${KMOD_KERNEL_RELEASE}/extra)
+
+    # install source code
+    install(DIRECTORY ${OBJECTS_DIR} DESTINATION "/usr/src")
 
     # Generate module dependencies, otherwise modprobe won't see the module
     install(CODE "execute_process(COMMAND sudo depmod)")

@@ -2,18 +2,14 @@ cmake_minimum_required(VERSION 3.15)
 include(FeatureSummary)
 include(CMakeDependentOption)
 
-# set(FETCHCONTENT_BASE_DIR ${PROJECT_SOURCE_DIR}/external/_deps)
-
 project(
-    "LimeSuiteNG"
+    "limesuiteng"
     VERSION 0.4.0.0
     LANGUAGES C CXX)
 message(STATUS "cmake version: ${CMAKE_VERSION}")
 
 set(CPACK_INSTALL_DEFAULT_DIRECTORY_PERMISSIONS
-    OWNER_READ OWNER_WRITE OWNER_EXECUTE
-    GROUP_READ GROUP_EXECUTE
-    WORLD_READ WORLD_EXECUTE)
+    OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
 
 #include modules for finding CyAPI
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/")

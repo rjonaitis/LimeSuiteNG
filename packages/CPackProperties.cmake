@@ -9,6 +9,8 @@
 # (e.g. CPACK_NSIS_EXTRA_INSTALL_COMMANDS). The generator specific variables
 # usually begin with CPACK_<GENNAME>_xxxx.
 
+set(CPACK_THREADS "0") # 0=max thread count
+
 set(CPACK_OUTPUT_FILE_PREFIX "${PROJECT_BINARY_DIR}/packages")
 set(CPACK_PACKAGE_DIRECTORY ${PROJECT_BINARY_DIR}/packages)
 
@@ -16,7 +18,6 @@ set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY ON)
 set(CPACK_OUTPUT_CONFIG_FILE "${PROJECT_BINARY_DIR}/packages/CPackConfig.cmake")
 set(CPACK_SOURCE_OUTPUT_CONFIG_FILE "${PROJECT_BINARY_DIR}/packages/CPackSourceConfig.cmake")
 set(CPACK_SOURCE_IGNORE_FILES "/build/;/docs/;/\\\\.git/;/*\\\\.gitignore;/*\\\\.lib;/*\\\\.dll")
-
 set(CPACK_IGNORE_FILES "/build/;/docs/;/\\\\.git/")
 
 set(CPACK_DEB_COMPONENT_INSTALL YES)
@@ -33,7 +34,6 @@ set(
     WORLD_READ WORLD_EXECUTE
 )
 
-set(CPACK_PACKAGE_NAME "LimeSuiteNG")
 set(CPACK_PACKAGE_DESCRIPTION "Software packages for LimeSDR based devices")
 set(CPACK_PACKAGE_RELOCATABLE "true")
 set(CPACK_PACKAGE_CONTACT "Lime Microsystems <info@limemicro.com>")

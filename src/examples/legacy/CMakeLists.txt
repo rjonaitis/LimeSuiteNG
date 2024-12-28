@@ -1,3 +1,7 @@
+if(NOT BUILD_LEGACYAPI)
+    return()
+endif()
+
 set(examplesOutputDir "${CMAKE_BINARY_DIR}/bin/examples")
 
 add_executable(legacyBasicRX basicRX.cpp)

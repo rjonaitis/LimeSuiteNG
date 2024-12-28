@@ -24,9 +24,9 @@ if(get_git_head_revision)
     endif(GITHASH)
 endif(get_git_head_revision)
 
-# configure the version.h header in-tree, as the DKMS shell scripts are not aware of cmake build directory, and they copy all sources into system directory
-configure_file(version.h.in ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-src/version.h @ONLY)
-configure_file(dkms.conf.in ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-src/dkms.conf @ONLY)
+set(OBJECTS_DIR ${PROJECT_NAME}-${PROJECT_VERSION})
+configure_file(version.h.in ${CMAKE_CURRENT_BINARY_DIR}/${OBJECTS_DIR}/version.h @ONLY)
+configure_file(dkms.conf.in ${CMAKE_CURRENT_BINARY_DIR}/${OBJECTS_DIR}/dkms.conf @ONLY)
 
 find_program(DKMS_EXECUTABLE NAMES dkms)
 mark_as_advanced(DKMS_EXECUTABLE)
@@ -55,8 +55,8 @@ add_kernel_module(
     bsp/mem.h
     bsp/soc.h
     CONFIGURED_FILES
-    ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-src/version.h
-    ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-src/dkms.conf)
+    ${CMAKE_CURRENT_BINARY_DIR}/${OBJECTS_DIR}/version.h
+    ${CMAKE_CURRENT_BINARY_DIR}/${OBJECTS_DIR}/dkms.conf)
 
 option(LIMEPCIE_INSTALL "Install Linux LimePCIe kernel module" ON)
 if(NOT LIMEPCIE_INSTALL)

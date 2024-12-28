@@ -144,7 +144,6 @@ add_subdirectory(comms)
 add_subdirectory(boards)
 add_subdirectory(chips)
 add_subdirectory(DSP)
-add_subdirectory(examples)
 add_subdirectory(streaming)
 
 ########################################################################
@@ -152,15 +151,20 @@ add_subdirectory(streaming)
 # wrapper functions split into separate library to avoid symbols collision
 # if both limesuiteng and LimeSuite would be linked to application.
 ########################################################################
-add_library(limesuiteng-legacyapi API/LMS_APIWrapper.cpp)
-target_include_directories(
-    limesuiteng-legacyapi PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>)
-target_link_libraries(limesuiteng-legacyapi PUBLIC limesuiteng)
+option(BUILD_LEGACYAPI "Build legacy LMS_API" ON)
+if(BUILD_LEGACYAPI)
+    add_library(limesuiteng-legacyapi API/LMS_APIWrapper.cpp)
+    target_include_directories(
+        limesuiteng-legacyapi PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>)
+    target_link_libraries(limesuiteng-legacyapi PUBLIC limesuiteng)
 
-install(
-    TARGETS limesuiteng-legacyapi
-    EXPORT limesuitengTarget
-    COMPONENT legacyapi
-    DESTINATION lib${LIB_SUFFIX} # .so file
-    ARCHIVE DESTINATION lib${LIB_SUFFIX} # .lib file
-)
+    install(
+        TARGETS limesuiteng-legacyapi
+        EXPORT limesuitengTarget
+        COMPONENT legacyapi
+        DESTINATION lib${LIB_SUFFIX} # .so file
+        ARCHIVE DESTINATION lib${LIB_SUFFIX} # .lib file
+    )
+endif()
+
+add_subdirectory(examples)
