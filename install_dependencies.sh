@@ -58,6 +58,7 @@ apt-get install $yes --no-install-recommends \
   cmake \
   $headers \
   libglew-dev \
+  libkissfft-dev \
   libsoapysdr-dev \
   libusb-1.0-0-dev \
   $libwx

@@ -33,53 +33,58 @@ endif()
 #########################################################################
 # kissFFT
 #########################################################################
-fetchcontent_declare(
-    kissFFT
-    GIT_REPOSITORY https://github.com/mborgerding/kissfft.git
-    GIT_TAG f5f2a3b2f2cd02bf80639adb12cbeed125bdf420 # latest main at the time of writing this
-    EXCLUDE_FROM_ALL # from CMake 3.28+
-)
+if(WIN32)
+    fetchcontent_declare(
+        kissFFT
+        GIT_REPOSITORY https://github.com/mborgerding/kissfft.git
+        GIT_TAG f5f2a3b2f2cd02bf80639adb12cbeed125bdf420 # latest main at the time of writing this
+        EXCLUDE_FROM_ALL # from CMake 3.28+
+    )
 
-set(BUILD_SHARED_LIBS_ORIG ${BUILD_SHARED_LIBS})
-set(BUILD_SHARED_LIBS OFF)
-set(CMAKE_BUILD_TYPE_ORIG ${CMAKE_BUILD_TYPE})
-set(CMAKE_BUILD_TYPE "Release") # always build kissFFT in release mode, for better performance.
-set(KISSFFT_OPENMP
-    OFF
-    CACHE INTERNAL "")
-set(KISSFFT_PKGCONFIG
-    OFF
-    CACHE INTERNAL "")
-set(KISSFFT_STATIC
-    ON
-    CACHE INTERNAL "")
-set(KISSFFT_TEST
-    OFF
-    CACHE INTERNAL "")
-set(KISSFFT_TOOLS
-    OFF
-    CACHE INTERNAL "")
-set(KISSFFT_USE_ALLOCA
-    OFF
-    CACHE INTERNAL "")
-set(CMAKE_POLICY_DEFAULT_CMP0069 NEW)
-set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
-# Exclude from all for pre-CMake 3.28
-fetchcontent_getproperties(kissFFT)
-if(NOT kissfft_POPULATED)
-    fetchcontent_populate(kissFFT)
-    add_subdirectory(${kissfft_SOURCE_DIR} ${kissfft_BINARY_DIR} EXCLUDE_FROM_ALL)
+    set(BUILD_SHARED_LIBS_ORIG ${BUILD_SHARED_LIBS})
+    set(BUILD_SHARED_LIBS OFF)
+    set(CMAKE_BUILD_TYPE_ORIG ${CMAKE_BUILD_TYPE})
+    set(CMAKE_BUILD_TYPE "Release") # always build kissFFT in release mode, for better performance.
+    set(KISSFFT_OPENMP
+        OFF
+        CACHE INTERNAL "")
+    set(KISSFFT_PKGCONFIG
+        OFF
+        CACHE INTERNAL "")
+    set(KISSFFT_STATIC
+        ON
+        CACHE INTERNAL "")
+    set(KISSFFT_TEST
+        OFF
+        CACHE INTERNAL "")
+    set(KISSFFT_TOOLS
+        OFF
+        CACHE INTERNAL "")
+    set(KISSFFT_USE_ALLOCA
+        OFF
+        CACHE INTERNAL "")
+    set(CMAKE_POLICY_DEFAULT_CMP0069 NEW)
+    set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
+    # Exclude from all for pre-CMake 3.28
+    fetchcontent_getproperties(kissFFT)
+    if(NOT kissfft_POPULATED)
+        fetchcontent_populate(kissFFT)
+        add_subdirectory(${kissfft_SOURCE_DIR} ${kissfft_BINARY_DIR} EXCLUDE_FROM_ALL)
+        set_property(TARGET kissfft PROPERTY POSITION_INDEPENDENT_CODE TRUE)
+    endif()
     set_property(TARGET kissfft PROPERTY POSITION_INDEPENDENT_CODE TRUE)
-endif()
-set_property(TARGET kissfft PROPERTY POSITION_INDEPENDENT_CODE TRUE)
-# disable warnings spam
-if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    target_compile_options(kissfft PRIVATE -Wno-strict-prototypes -Wno-newline-eof -Wno-cast-align)
-endif()
-set(BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS_ORIG})
-set(CMAKE_BUILD_TYPE ${CMAKE_BUILD_TYPE_ORIG})
+    # disable warnings spam
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        target_compile_options(kissfft PRIVATE -Wno-strict-prototypes -Wno-newline-eof -Wno-cast-align)
+    endif()
+    set(BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS_ORIG})
+    set(CMAKE_BUILD_TYPE ${CMAKE_BUILD_TYPE_ORIG})
 
-# Download easily downloadable header only ones
+    list(APPEND CMAKE_PREFIX_PATH "${kissfft_BINARY_DIR}")
+    set(CMAKE_PREFIX_PATH
+        ${CMAKE_PREFIX_PATH}
+        PARENT_SCOPE)
+endif()
 
 #########################################################################
 # args
