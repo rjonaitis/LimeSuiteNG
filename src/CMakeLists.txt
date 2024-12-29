@@ -11,6 +11,8 @@ project(
     LANGUAGES C CXX)
 
 add_library(limesuiteng)
+# namespaced target for use in plugins build
+add_library(limesuiteng::limesuiteng ALIAS limesuiteng)
 
 # the ABI compatibility number should be incremented when the ABI changes
 # the format is to use the same major and minor, but to have an incrementing
@@ -141,8 +143,8 @@ target_link_libraries(
 target_include_directories(
     limesuiteng
     PRIVATE threadHelper
-    PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}> # so that GUI build can access internal headers
-           $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}> # so that GUI build can access internal headers
+           $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>
            $<INSTALL_INTERFACE:include>)
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug"
@@ -175,6 +177,7 @@ add_subdirectory(streaming)
 option(BUILD_LEGACYAPI "Build legacy LMS_API" ON)
 if(BUILD_LEGACYAPI)
     add_library(limesuiteng-legacyapi API/LMS_APIWrapper.cpp)
+    add_library(limesuiteng::limesuiteng-legacyapi ALIAS limesuiteng-legacyapi)
     target_include_directories(
         limesuiteng-legacyapi PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include> $<INSTALL_INTERFACE:include>)
     target_link_libraries(limesuiteng-legacyapi PUBLIC limesuiteng)
