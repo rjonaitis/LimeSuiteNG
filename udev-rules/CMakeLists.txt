@@ -15,6 +15,7 @@ install(
     COMPONENT udev-rules)
 
 option(UDEV_RULES_RELOAD "Reload UDEV rules after install" ON)
+add_feature_info("UDEV_RULES_RELOAD" UDEV_RULES_RELOAD "Reload UDEV rules after install")
 if(UDEV_RULES_RELOAD)
     install(
         CODE "

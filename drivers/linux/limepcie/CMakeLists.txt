@@ -59,9 +59,11 @@ add_kernel_module(
     ${CMAKE_CURRENT_BINARY_DIR}/${OBJECTS_DIR}/dkms.conf)
 
 option(LIMEPCIE_INSTALL "Install Linux LimePCIe kernel module" ON)
+add_feature_info("LIMEPCIE_INSTALL" LIMEPCIE_INSTALL "Install limepcie kernel module to system")
 if(NOT LIMEPCIE_INSTALL)
     return()
 endif()
 
 option(LIMEPCIE_RELOAD_ON_INSTALL "After install reload kernel driver modules" ON)
+add_feature_info("LIMEPCIE_RELOAD_ON_INSTALL" LIMEPCIE_RELOAD_ON_INSTALL "Reload limepcie kernel module after install")
 install_kernel_module(NAME limepcie DKMS ${LIMEPCIE_DKMS} RELOAD_MODULE ${LIMEPCIE_RELOAD_ON_INSTALL})

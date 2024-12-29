@@ -202,7 +202,6 @@ if(MSVC)
         message(FATAL_ERROR "MSVC version should be atleast v141 (Visual Studio 2017)")
     endif()
 
-    include_directories(${PROJECT_SOURCE_DIR}/external/msvc)
     add_compile_definitions(_CRT_SECURE_NO_WARNINGS NOMINMAX)
     add_compile_options("/MP" "/Zc:__cplusplus")
 
