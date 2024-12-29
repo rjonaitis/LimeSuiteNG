@@ -1,9 +1,8 @@
 project(
     "limesuiteng-cli"
     DESCRIPTION "LimeSuiteNG Command Line Interface applications"
-    VERSION 1.0.0.0
-    LANGUAGES CXX
-    HOMEPAGE_URL https://github.com/myriadrf/LimeSuiteNG/tree/develop/cli)
+    VERSION 1.0.0
+    LANGUAGES CXX)
 
 find_package(kissfft CONFIG REQUIRED)
 

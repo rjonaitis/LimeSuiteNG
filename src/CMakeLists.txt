@@ -7,6 +7,7 @@ include(CMakeDependentOption)
 project(
     "liblimesuiteng"
     VERSION 0.3.0
+    DESCRIPTION "Core library for interacting with LimeSDR based devices"
     LANGUAGES C CXX)
 
 add_library(limesuiteng)

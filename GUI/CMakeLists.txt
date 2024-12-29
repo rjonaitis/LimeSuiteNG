@@ -5,9 +5,8 @@ endif()
 project(
     "limesuiteng-gui"
     DESCRIPTION "LimeSuiteNG Graphical User Interface application"
-    VERSION 1.0.0.0
-    LANGUAGES CXX
-    HOMEPAGE_URL https://github.com/myriadrf/LimeSuiteNG/tree/develop/GUI)
+    VERSION 1.0.0
+    LANGUAGES CXX)
 
 include(FeatureSummary)
 include(CMakeDependentOption)

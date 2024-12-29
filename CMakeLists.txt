@@ -2,9 +2,15 @@ cmake_minimum_required(VERSION 3.15)
 include(FeatureSummary)
 include(CMakeDependentOption)
 
+# limesuiteng is meta project, that encompasses all subcomponents.
+# it's version could be used for packaging versioning.
+# Subprojects like liblimesuiteng, limesuiteng-cli...  have their own individual versions
+# but those can't really be used to set individual package versions, when all packages
+# are being built from the same source, as source package can have only one version.
 project(
     "limesuiteng"
-    VERSION 0.4.0.0
+    VERSION 0.4.0
+    DESCRIPTION "Meta project encompassing all LimeSuiteNG components"
     LANGUAGES C CXX)
 message(STATUS "cmake version: ${CMAKE_VERSION}")
 
