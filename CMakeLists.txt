@@ -15,19 +15,6 @@ set(CPACK_INSTALL_DEFAULT_DIRECTORY_PERMISSIONS
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/")
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/")
 
-########################################################################
-# Gather version information from the changelog
-# LIMESUITENG_API_VERSION in VersionInfo.h reflects the major/minor
-########################################################################
-file(READ "${PROJECT_SOURCE_DIR}/Changelog.txt" changelog_txt)
-string(REGEX MATCH "Release ([0-9]+)\\.([0-9]+)\\.([0-9]+) \\(" CHANGELOG_MATCH "${changelog_txt}")
-if(NOT CHANGELOG_MATCH)
-    message(FATAL_ERROR "Failed to extract version number from Changelog.txt")
-endif(NOT CHANGELOG_MATCH)
-set(VERSION_MAJOR "${CMAKE_MATCH_1}")
-set(VERSION_MINOR "${CMAKE_MATCH_2}")
-set(VERSION_PATCH "${CMAKE_MATCH_3}")
-
 set(CMAKE_CONFIGURATION_TYPES
     "Debug;Release;RelWithDebInfo"
     CACHE STRING INTERNAL FORCE)
@@ -44,51 +31,11 @@ endif()
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(BUILD_SHARED_LIBS "Build the shared library" ON)
-option(ENABLE_NEW_GAIN_BEHAVIOUR "Enable new gain functionality" OFF)
 
 list(FIND CMAKE_CONFIGURATION_TYPES "${CMAKE_BUILD_TYPE}" index)
 if(${index} EQUAL -1)
     set(CMAKE_BUILD_TYPE "Release")
 endif()
-
-# verify that VersionInfo.h LIMESUITENG_API_VERSION define matches changelog
-file(READ "${PROJECT_SOURCE_DIR}/src/include/limesuiteng/VersionInfo.h" version_info_header_txt)
-string(REGEX MATCH "LIMESUITENG_API_VERSION 0x([A-Fa-f0-9]*)" VERSION_DEFINE_MATCH "${version_info_header_txt}")
-if(NOT VERSION_DEFINE_MATCH)
-    message(FATAL_ERROR "Failed to extract API version from VersionInfo.h")
-endif()
-math(EXPR VERSION_MAJOR_IN_HEADER "(0x${CMAKE_MATCH_1} >> 24) & 0xFF" OUTPUT_FORMAT DECIMAL)
-math(EXPR VERSION_MINOR_IN_HEADER "(0x${CMAKE_MATCH_1} >> 16) & 0xFF" OUTPUT_FORMAT DECIMAL)
-math(EXPR VERSION_PATCH_IN_HEADER "(0x${CMAKE_MATCH_1}) & 0xFFFF" OUTPUT_FORMAT DECIMAL)
-if(NOT ${VERSION_MAJOR} EQUAL ${VERSION_MAJOR_IN_HEADER}
-   OR NOT ${VERSION_MINOR} EQUAL ${VERSION_MINOR_IN_HEADER}
-   OR NOT ${VERSION_PATCH} EQUAL ${VERSION_PATCH_IN_HEADER})
-    message(
-        FATAL_ERROR
-            "Changelog release version (${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH})"
-            " don't match header API version (${VERSION_MAJOR_IN_HEADER}.${VERSION_MINOR_IN_HEADER}.${VERSION_PATCH_IN_HEADER})")
-endif()
-
-# the ABI compatibility number should be incremented when the ABI changes
-# the format is to use the same major and minor, but to have an incrementing
-# number if there are changes within the major.minor release series
-set(LIME_SUITE_SOVER "${VERSION_MAJOR}.${VERSION_MINOR}-1")
-
-# packagers may specify -DLIME_SUITE_EXTVER="foo" to replace the git hash
-if(NOT LIME_SUITE_EXTVER)
-    include(${PROJECT_SOURCE_DIR}/cmake/GetGitRevisionDescription.cmake)
-    get_git_head_revision(GITREFSPEC GITHASH)
-    if(GITHASH)
-        string(SUBSTRING "${GITHASH}" 0 8 GITHASH)
-        set(LIME_SUITE_EXTVER "g${GITHASH}")
-    else(GITHASH)
-        set(LIME_SUITE_EXTVER "unknown")
-    endif(GITHASH)
-endif()
-
-set(LIME_SUITE_LIBVER "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
-set(LIME_SUITE_VERSION "${LIME_SUITE_LIBVER}-${LIME_SUITE_EXTVER}")
-string(TIMESTAMP BUILD_TIMESTAMP "%Y-%m-%d")
 
 #LIME_SUITE_ROOT is compiled into the library to locate the install base.
 #By default, the LIME_SUITE_ROOT is set to the CMAKE_INSTALL_PREFIX.
@@ -226,10 +173,6 @@ endif(MSVC)
 if(APPLE)
     add_compile_definitions(__unix__=1) #we use this for unix detection, but clang does not define it
 endif(APPLE)
-
-if(ENABLE_NEW_GAIN_BEHAVIOUR)
-    add_compile_definitions(NEW_GAIN_BEHAVIOUR)
-endif()
 
 ###########################################################################################
 # rpath setup - https://gitlab.kitware.com/cmake/community/-/wikis/doc/cmake/RPATH-handling

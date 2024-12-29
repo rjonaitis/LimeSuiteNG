@@ -6,11 +6,37 @@ include(FeatureSummary)
 include(CMakeDependentOption)
 project(
     "liblimesuiteng"
-    VERSION 0.3.0.0
+    VERSION 0.3.0
     LANGUAGES C CXX)
 
-option(INSTALL_DEVELOPMENT "Install limesuiteng headers & development files" ON)
-add_feature_info("INSTALL_DEVELOPMENT" INSTALL_DEVELOPMENT "Install limesuiteng headers & development files")
+add_library(limesuiteng)
+
+# the ABI compatibility number should be incremented when the ABI changes
+# the format is to use the same major and minor, but to have an incrementing
+# number if there are changes within the major.minor release series
+set(LIMESUITENG_SOVER "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}-1")
+
+# packagers may specify -DLIMESUITENG_EXTVER="foo" to replace the git hash
+if(NOT LIMESUITENG_EXTVER)
+    include(GetGitRevisionDescription)
+    get_git_head_revision(GITREFSPEC GITHASH)
+    if(GITHASH)
+        string(SUBSTRING "${GITHASH}" 0 8 GITHASH)
+        set(LIMESUITENG_EXTVER "g${GITHASH}")
+    else(GITHASH)
+        set(LIMESUITENG_EXTVER "unknown")
+    endif(GITHASH)
+endif()
+
+set_target_properties(
+    limesuiteng
+    PROPERTIES POSITION_INDEPENDENT_CODE TRUE
+               SOVERSION ${LIMESUITENG_SOVER}
+               DEFINE_SYMBOL "LIME_DLL_EXPORTS")
+
+if(BUILD_SHARED_LIBS)
+    target_compile_definitions(limesuiteng PUBLIC "LIME_DLL")
+endif()
 
 # components
 # runtime: just the shared library object
@@ -20,8 +46,12 @@ add_feature_info("INSTALL_DEVELOPMENT" INSTALL_DEVELOPMENT "Install limesuiteng 
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 
-add_library(limesuiteng)
 add_subdirectory(include)
+
+option(ENABLE_NEW_GAIN_BEHAVIOUR "Enable new gain functionality" OFF)
+if(ENABLE_NEW_GAIN_BEHAVIOUR)
+    target_compile_definitions(limesuiteng PRIVATE NEW_GAIN_BEHAVIOUR)
+endif()
 
 ########################################################################
 # CMake Project config files
@@ -46,6 +76,8 @@ install(
     RUNTIME DESTINATION bin # .dll file
 )
 
+option(INSTALL_DEVELOPMENT "Install limesuiteng headers & development files" ON)
+add_feature_info("INSTALL_DEVELOPMENT" INSTALL_DEVELOPMENT "Install limesuiteng headers & development files")
 if(INSTALL_DEVELOPMENT)
     install(
         FILES ${CMAKE_CURRENT_BINARY_DIR}/limesuiteng.pc
@@ -93,17 +125,6 @@ endif()
 set_source_files_properties(mcu_program/common_src/lms7002m_controls.c PROPERTIES LANGUAGE CXX)
 
 target_precompile_headers(limesuiteng PRIVATE ${CPP_STL_CPH})
-
-set_target_properties(
-    limesuiteng
-    PROPERTIES POSITION_INDEPENDENT_CODE TRUE
-               SOVERSION ${LIME_SUITE_SOVER}
-               VERSION ${LIME_SUITE_LIBVER}
-               DEFINE_SYMBOL "LIME_DLL_EXPORTS")
-
-if(BUILD_SHARED_LIBS)
-    target_compile_definitions(limesuiteng PUBLIC "LIME_DLL")
-endif()
 
 include(CheckAtomic)
 if(NOT HAVE_CXX_ATOMICS_WITHOUT_LIB OR NOT HAVE_CXX_ATOMICS64_WITHOUT_LIB)

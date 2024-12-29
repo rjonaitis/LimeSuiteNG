@@ -2,9 +2,16 @@
 ## public headers
 ########################################################################
 
+string(TIMESTAMP BUILD_TIMESTAMP "%Y-%m-%d")
+set(LIMESUITENG_VERSION "${PROJECT_VERSION}-${LIMESUITENG_EXTVER}")
+
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/limesuiteng/VersionInfo.h.in ${CMAKE_CURRENT_BINARY_DIR}/limesuiteng/VersionInfo.h @ONLY)
 configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/limesuiteng/VersionInfo.in.cpp ${CMAKE_CURRENT_BINARY_DIR}/limesuiteng/VersionInfo.cpp @ONLY)
-target_sources(limesuiteng PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/limesuiteng/VersionInfo.cpp)
+    ${CMAKE_CURRENT_SOURCE_DIR}/limesuiteng/VersionInfo.cpp.in ${CMAKE_CURRENT_BINARY_DIR}/limesuiteng/VersionInfo.cpp @ONLY)
+
+target_sources(
+    limesuiteng
+    PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/limesuiteng/VersionInfo.h ${CMAKE_CURRENT_BINARY_DIR}/limesuiteng/VersionInfo.cpp)
 
 if(INSTALL_DEVELOPMENT)
     file(
