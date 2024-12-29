@@ -322,11 +322,11 @@ endif()
 ########################################################################
 ## Doxygen
 ########################################################################
-# option(BUILD_DOCS "Generate documentation" ON)
-# add_feature_info("BUILD_DOCS" BUILD_DOCS "Build documentation")
-# if(BUILD_DOCS)
-#     add_subdirectory(docs/doxygen)
-# endif()
+option(BUILD_DOCS "Generate documentation" ON)
+add_feature_info("BUILD_DOCS" BUILD_DOCS "Build documentation")
+if(BUILD_DOCS)
+    add_subdirectory(docs/doxygen)
+endif()
 
 #########################################################################
 # summary
