@@ -23,7 +23,6 @@ endif(NOT limesuiteng_sources)
 
 add_library(gnuradio-limesuiteng SHARED ${limesuiteng_sources})
 
-find_package(limesuiteng)
 target_link_libraries(
     gnuradio-limesuiteng
     PUBLIC gnuradio::gnuradio-runtime

@@ -32,6 +32,10 @@ if(NOT ${CMAKE_PROJECT_NAME} EQUAL ${PROJECT_NAME})
     if(NOT BUILD_PLUGINS_GNURADIO)
         return()
     endif()
+    # building as subproject, limesuiteng is cmake target
+else()
+    # building as standalone project, find the limesuiteng dependencie
+    find_package(limesuiteng CONFIG REQUIRED)
 endif()
 
 # Install to PyBOMBS target prefix if defined
