@@ -141,7 +141,7 @@ find_package(kissfft CONFIG REQUIRED)
 target_link_libraries(
     limeGUI
     PUBLIC limesuiteng ${wxWidgets_LIBRARIES}
-    PRIVATE kissfft::kissfft-float)
+    PRIVATE kissfft)
 
 if(MSVC)
     target_compile_definitions(limeGUI PRIVATE WIN32_LEAN_AND_MEAN)

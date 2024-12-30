@@ -7,9 +7,8 @@ include(FetchContent)
 set(OpenGL_GL_PREFERENCE GLVND)
 find_package(OpenGL QUIET)
 if(TARGET OpenGL::GL) # GLEW header needs GL/gl.h
-    if(UNIX)
-        find_package(GLEW) # use system libs
-    else() # On Windows download and build static version of GLEW
+    find_package(GLEW) # use system libs
+    if(NOT GLEW_FOUND)
         fetchcontent_declare(
             GLEW_download
             URL https://github.com/nigels-com/glew/releases/download/glew-2.2.0/glew-2.2.0.tgz
@@ -33,12 +32,13 @@ endif()
 #########################################################################
 # kissFFT
 #########################################################################
-if(WIN32)
+# find_package(kissfft)
+if(TRUE)
     fetchcontent_declare(
         kissFFT
-        GIT_REPOSITORY https://github.com/mborgerding/kissfft.git
-        GIT_TAG f5f2a3b2f2cd02bf80639adb12cbeed125bdf420 # latest main at the time of writing this
-        EXCLUDE_FROM_ALL # from CMake 3.28+
+        # GIT_REPOSITORY https://github.com/mborgerding/kissfft.git
+        # GIT_TAG f5f2a3b2f2cd02bf80639adb12cbeed125bdf420 # latest main at the time of writing this
+        URL ${CMAKE_CURRENT_LIST_DIR}/kissfft.zip EXCLUDE_FROM_ALL # from CMake 3.28+
     )
 
     set(BUILD_SHARED_LIBS_ORIG ${BUILD_SHARED_LIBS})
@@ -84,6 +84,9 @@ if(WIN32)
     set(CMAKE_PREFIX_PATH
         ${CMAKE_PREFIX_PATH}
         PARENT_SCOPE)
+
+    add_library(kissfft::kissfft ALIAS kissfft)
+    include_directories(${kissfft_SOURCE_DIR})
 endif()
 
 #########################################################################

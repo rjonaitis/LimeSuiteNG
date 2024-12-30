@@ -23,7 +23,7 @@ set_target_properties(basicRX PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${examplesOutp
 target_link_libraries(
     basicRX
     PRIVATE limesuiteng
-    PRIVATE cli-shared kissfft::kissfft-float)
+    PRIVATE cli-shared kissfft)
 
 add_executable(dualRXTX dualRXTX.cpp)
 set_target_properties(dualRXTX PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${examplesOutputDir})
@@ -34,6 +34,6 @@ set_target_properties(basicTX PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${examplesOutp
 target_link_libraries(
     basicTX
     PRIVATE limesuiteng
-    PRIVATE cli-shared kissfft::kissfft-float taywee-args)
+    PRIVATE cli-shared kissfft taywee-args)
 
 add_subdirectory(legacy)
