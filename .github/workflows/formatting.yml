@@ -22,6 +22,7 @@ jobs:
 
       - name: Run clang-format
         run: |
+          clang-format --version
           before="${{ github.event.pull_request.base.sha }}"
           if [ "$before" == "" ]; then
             before="${{ github.event.before }}"
@@ -49,12 +50,17 @@ jobs:
 
       - name: Run cmake-format
         run: |
+          cmake-format --version
           cmake-format --check $(find ${{github.workspace}} -name CMakeLists.txt)
           code=$?
-          if [[ $code != 0 ]]; then
-              exit 1
+          if [[ $code == 0 ]]; then
+            exit 0
           fi
-          exit 0
+
+          # show why the formatting changes, for some reason local formatting not always match repo formatting
+          cmake-format -i $(find ${{github.workspace}} -name CMakeLists.txt)
+          git diff
+          exit 1
 
   clang-tidy:
     if: false # skip job until it's properly setup to be runnable locally

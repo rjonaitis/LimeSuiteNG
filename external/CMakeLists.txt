@@ -7,6 +7,7 @@ include(FetchContent)
 set(OpenGL_GL_PREFERENCE GLVND)
 find_package(OpenGL QUIET)
 if(TARGET OpenGL::GL) # GLEW header needs GL/gl.h
+    # OSX has can have glew package, but it's includes fail.
     find_package(GLEW) # use system libs
     if(NOT GLEW_FOUND)
         fetchcontent_declare(
@@ -33,6 +34,7 @@ endif()
 # kissFFT
 #########################################################################
 # find_package(kissfft)
+# kissfft target name varies if it's static or shared library. So just always compile static version from source.
 if(TRUE)
     fetchcontent_declare(
         kissFFT
