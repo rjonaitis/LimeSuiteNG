@@ -12,7 +12,7 @@
 #include <csignal>
 #include "kiss_fft.h"
 #include "args.hxx"
-#include "common.h"
+#include "../../cli/common.h"
 #ifdef USE_GNU_PLOT
     #include "gnuPlotPipe.h"
 #endif

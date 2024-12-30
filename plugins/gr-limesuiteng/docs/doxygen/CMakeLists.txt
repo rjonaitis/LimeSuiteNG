@@ -20,8 +20,7 @@ set(enable_latex_docs NO)
 set(enable_mathjax NO)
 set(enable_xml_docs YES)
 
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.in
-               ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile @ONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.in ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile @ONLY)
 
 set(BUILT_DIRS ${CMAKE_CURRENT_BINARY_DIR}/xml ${CMAKE_CURRENT_BINARY_DIR}/html)
 
@@ -36,4 +35,7 @@ add_custom_command(
 
 add_custom_target(doxygen_target ALL DEPENDS ${BUILT_DIRS})
 
-install(DIRECTORY ${BUILT_DIRS} DESTINATION ${GR_PKG_DOC_DIR})
+install(
+    DIRECTORY ${BUILT_DIRS}
+    DESTINATION ${GR_PKG_DOC_DIR}
+    COMPONENT docs)

@@ -1,7 +1,7 @@
 #ifndef LIME_LIMESDR_MINI_H
 #define LIME_LIMESDR_MINI_H
 
-#include "LMS7002M_SDRDevice.h"
+#include "boards/LMS7002M_SDRDevice.h"
 
 #include <vector>
 #include <memory>

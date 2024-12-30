@@ -8,4 +8,4 @@
 
 include(GrPython)
 
-gr_python_install(PROGRAMS DESTINATION bin)
+gr_python_install(PROGRAMS DESTINATION bin COMPONENT gr-limesuiteng)

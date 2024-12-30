@@ -2,7 +2,7 @@
 #define LIME_LIMESDR_X3_H
 
 #include "chips/CDCM6208/CDCM6208.h"
-#include "LMS7002M_SDRDevice.h"
+#include "boards/LMS7002M_SDRDevice.h"
 #include "protocols/LMS64CProtocol.h"
 
 #include <vector>

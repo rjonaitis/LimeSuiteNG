@@ -6,7 +6,7 @@
 
 #include "limesuiteng/SDRDevice.h"
 #include "limesuiteng/SDRDescriptor.h"
-#include "common.h"
+#include "cli/common.h"
 
 using ::testing::InitGoogleTest;
 using namespace std;

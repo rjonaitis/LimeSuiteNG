@@ -24,9 +24,7 @@ include(GrPybind)
 # Python Bindings
 ########################################################################
 
-list(APPEND limesuiteng_python_files
-    sdrdevice_source_python.cc
-    sdrdevice_sink_python.cc python_bindings.cc)
+list(APPEND limesuiteng_python_files sdrdevice_source_python.cc sdrdevice_sink_python.cc python_bindings.cc)
 
 gr_pybind_make_oot(limesuiteng ../../.. gr::limesuiteng "${limesuiteng_python_files}")
 
@@ -34,10 +32,9 @@ gr_pybind_make_oot(limesuiteng ../../.. gr::limesuiteng "${limesuiteng_python_fi
 add_custom_command(
     TARGET limesuiteng_python
     POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:limesuiteng_python>
-            ${PROJECT_BINARY_DIR}/test_modules/gnuradio/limesuiteng/)
+    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:limesuiteng_python> ${PROJECT_BINARY_DIR}/test_modules/gnuradio/limesuiteng/)
 
 install(
     TARGETS limesuiteng_python
     DESTINATION ${GR_PYTHON_DIR}/gnuradio/limesuiteng
-    COMPONENT pythonapi)
+    COMPONENT gr-limesuiteng)

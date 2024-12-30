@@ -16,7 +16,6 @@
 #include "chips/CDCM6208/CDCM6208_wxgui.h"
 #include "LMS_Programming/LMS_Programming_wxgui.h"
 #include "utility/pnlMiniLog.h"
-#include "FPGAcontrols_wxgui.h"
 #include "utility/SPI_wxgui.h"
 #include <wx/string.h>
 #include "utility/dlgDeviceInfo.h"

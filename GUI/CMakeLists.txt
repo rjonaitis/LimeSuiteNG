@@ -1,3 +1,16 @@
+if(NOT DEFINED CMAKE_MINIMUM_REQUIRED_VERSION)
+    cmake_minimum_required(VERSION 3.15)
+endif()
+
+project(
+    "limesuiteng-gui"
+    DESCRIPTION "LimeSuiteNG Graphical User Interface application"
+    VERSION 1.0.0
+    LANGUAGES CXX)
+
+include(FeatureSummary)
+include(CMakeDependentOption)
+
 ########################################################################
 ## wx widgets dependency
 ########################################################################
@@ -61,16 +74,13 @@ message(STATUS "wxWidgets_DEFINITIONS: ${wxWidgets_DEFINITIONS}")
 message(STATUS "wxWidgets_INCLUDE_DIRS: ${wxWidgets_INCLUDE_DIRS}")
 message(STATUS "wxWidgets_LIBRARIES: ${wxWidgets_LIBRARIES}")
 
-include(FeatureSummary)
-include(CMakeDependentOption)
-cmake_dependent_option(ENABLE_GUI "Enable build limeGUI" ON "ENABLE_LIBRARY;wxWidgets_FOUND" OFF)
-add_feature_info(GUI ENABLE_GUI "GUI Application for LimeSuite")
-if(NOT ENABLE_GUI)
-    return()
-endif()
-
 include(${wxWidgets_USE_FILE})
 
+add_executable(limeGUI resources/resource.rc)
+
+########################################################################
+# Precompiled headers
+########################################################################
 set(WXWIDGETS_PCH
     <wx/panel.h>
     <wx/button.h>
@@ -93,10 +103,7 @@ set(WXWIDGETS_PCH
     <wx/string.h>
     <wx/textctrl.h>
     <wx/timer.h>)
-
-add_executable(limeGUI resources/resource.rc)
 target_precompile_headers(limeGUI PRIVATE ${CPP_STL_PCH} ${WXWIDGETS_PCH})
-
 set_target_properties(limeGUI PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 target_sources(
@@ -124,22 +131,13 @@ set_source_files_properties(
 set_source_files_properties(
     oglGraph/dlgMarkers.cpp oglGraph//GLFont.cpp oglGraph/OpenGLGraph.cpp PROPERTIES SKIP_UNITY_BUILD_INCLUSION true)
 
-target_include_directories(
-    limeGUI
-    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
-            lms7002_wxgui
-            utilities_gui
-            FPGAcontrols_wxgui
-            numericSlider
-            fftviewer_wxgui
-            lms7suiteEvents
-            boards_wxgui
-            GUI)
+target_include_directories(limeGUI PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} numericSlider fftviewer_wxgui GUI)
 
 add_subdirectory(boards)
 add_subdirectory(chips)
 add_subdirectory(oglGraph)
 
+find_package(kissfft CONFIG REQUIRED)
 target_link_libraries(
     limeGUI
     PUBLIC limesuiteng ${wxWidgets_LIBRARIES}
@@ -153,6 +151,9 @@ if(MSVC)
         PROPERTY LINK_FLAGS /SUBSYSTEM:WINDOWS)
 endif(MSVC)
 
+########################################################################
+# Copy external DLLs to binaries directory
+########################################################################
 if(WIN32)
     if(CMAKE_SIZEOF_VOID_P EQUAL 8)
         set(x64_postfix "_x64")
@@ -179,4 +180,7 @@ if(WIN32)
         DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif(WIN32)
 
-install(TARGETS limeGUI DESTINATION bin)
+install(
+    TARGETS limeGUI
+    DESTINATION bin
+    COMPONENT gui)

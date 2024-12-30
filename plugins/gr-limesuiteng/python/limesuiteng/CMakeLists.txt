@@ -19,7 +19,7 @@ add_subdirectory(bindings)
 ########################################################################
 # Install python sources
 ########################################################################
-gr_python_install(FILES __init__.py DESTINATION ${GR_PYTHON_DIR}/gnuradio/limesuiteng)
+gr_python_install(FILES __init__.py DESTINATION ${GR_PYTHON_DIR}/gnuradio/limesuiteng COMPONENT gr-limesuiteng)
 
 ########################################################################
 # Handle the unit tests
@@ -30,7 +30,5 @@ set(GR_TEST_TARGET_DEPS gnuradio-limesuiteng)
 
 # Create a package directory that tests can import. It includes everything
 # from `python/`.
-add_custom_target(
-    copy_module_for_tests ALL
-    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}
-            ${PROJECT_BINARY_DIR}/test_modules/gnuradio/limesuiteng/)
+add_custom_target(copy_module_for_tests ALL COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}
+                                                    ${PROJECT_BINARY_DIR}/test_modules/gnuradio/limesuiteng/)

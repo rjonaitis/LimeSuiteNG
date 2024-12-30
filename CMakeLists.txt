@@ -1,16 +1,29 @@
-########################################################################
-## Create LimeSuiteNG project
-########################################################################
 cmake_minimum_required(VERSION 3.15)
-
 include(FeatureSummary)
 include(CMakeDependentOption)
 
+# limesuiteng is meta project, that encompasses all subcomponents.
+# it's version could be used for packaging versioning.
+# Subprojects like liblimesuiteng, limesuiteng-cli...  have their own individual versions
+# but those can't really be used to set individual package versions, when all packages
+# are being built from the same source, as source package can have only one version.
+project(
+    "limesuiteng"
+    VERSION 0.4.0
+    DESCRIPTION "Meta project encompassing all LimeSuiteNG components"
+    LANGUAGES C CXX)
 message(STATUS "cmake version: ${CMAKE_VERSION}")
+
+set(CPACK_INSTALL_DEFAULT_DIRECTORY_PERMISSIONS
+    OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
+
+#include modules for finding CyAPI
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/")
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/")
+
 set(CMAKE_CONFIGURATION_TYPES
     "Debug;Release;RelWithDebInfo"
     CACHE STRING INTERNAL FORCE)
-project("LimeSuiteNG" LANGUAGES C CXX)
 
 ### Require out-of-source builds
 file(TO_CMAKE_PATH "${PROJECT_BINARY_DIR}/CMakeLists.txt" LOC_PATH)
@@ -24,67 +37,11 @@ endif()
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(BUILD_SHARED_LIBS "Build the shared library" ON)
-option(ENABLE_NEW_GAIN_BEHAVIOUR "Enable new gain functionality" OFF)
-
-#include modules for finding CyAPI
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/")
 
 list(FIND CMAKE_CONFIGURATION_TYPES "${CMAKE_BUILD_TYPE}" index)
 if(${index} EQUAL -1)
     set(CMAKE_BUILD_TYPE "Release")
 endif()
-
-########################################################################
-# Gather version information from the changelog
-# LIMESUITENG_API_VERSION in VersionInfo.h reflects the major/minor
-########################################################################
-file(READ "${PROJECT_SOURCE_DIR}/Changelog.txt" changelog_txt)
-string(REGEX MATCH "Release ([0-9]+)\\.([0-9]+)\\.([0-9]+) \\(" CHANGELOG_MATCH "${changelog_txt}")
-if(NOT CHANGELOG_MATCH)
-    message(FATAL_ERROR "Failed to extract version number from Changelog.txt")
-endif(NOT CHANGELOG_MATCH)
-set(VERSION_MAJOR "${CMAKE_MATCH_1}")
-set(VERSION_MINOR "${CMAKE_MATCH_2}")
-set(VERSION_PATCH "${CMAKE_MATCH_3}")
-
-# verify that VersionInfo.h LIMESUITENG_API_VERSION define matches changelog
-file(READ "${PROJECT_SOURCE_DIR}/src/include/limesuiteng/VersionInfo.h" version_info_header_txt)
-string(REGEX MATCH "LIMESUITENG_API_VERSION 0x([A-Fa-f0-9]*)" VERSION_DEFINE_MATCH "${version_info_header_txt}")
-if(NOT VERSION_DEFINE_MATCH)
-    message(FATAL_ERROR "Failed to extract API version from VersionInfo.h")
-endif()
-math(EXPR VERSION_MAJOR_IN_HEADER "(0x${CMAKE_MATCH_1} >> 24) & 0xFF" OUTPUT_FORMAT DECIMAL)
-math(EXPR VERSION_MINOR_IN_HEADER "(0x${CMAKE_MATCH_1} >> 16) & 0xFF" OUTPUT_FORMAT DECIMAL)
-math(EXPR VERSION_PATCH_IN_HEADER "(0x${CMAKE_MATCH_1}) & 0xFFFF" OUTPUT_FORMAT DECIMAL)
-if(NOT ${VERSION_MAJOR} EQUAL ${VERSION_MAJOR_IN_HEADER}
-   OR NOT ${VERSION_MINOR} EQUAL ${VERSION_MINOR_IN_HEADER}
-   OR NOT ${VERSION_PATCH} EQUAL ${VERSION_PATCH_IN_HEADER})
-    message(
-        FATAL_ERROR
-            "Changelog release version (${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH})"
-            " don't match header API version (${VERSION_MAJOR_IN_HEADER}.${VERSION_MINOR_IN_HEADER}.${VERSION_PATCH_IN_HEADER})")
-endif()
-
-# the ABI compatibility number should be incremented when the ABI changes
-# the format is to use the same major and minor, but to have an incrementing
-# number if there are changes within the major.minor release series
-set(LIME_SUITE_SOVER "${VERSION_MAJOR}.${VERSION_MINOR}-1")
-
-# packagers may specify -DLIME_SUITE_EXTVER="foo" to replace the git hash
-if(NOT LIME_SUITE_EXTVER)
-    include(${PROJECT_SOURCE_DIR}/cmake/GetGitRevisionDescription.cmake)
-    get_git_head_revision(GITREFSPEC GITHASH)
-    if(GITHASH)
-        string(SUBSTRING "${GITHASH}" 0 8 GITHASH)
-        set(LIME_SUITE_EXTVER "g${GITHASH}")
-    else(GITHASH)
-        set(LIME_SUITE_EXTVER "unknown")
-    endif(GITHASH)
-endif()
-
-set(LIME_SUITE_LIBVER "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
-set(LIME_SUITE_VERSION "${LIME_SUITE_LIBVER}-${LIME_SUITE_EXTVER}")
-string(TIMESTAMP BUILD_TIMESTAMP "%Y-%m-%d")
 
 #LIME_SUITE_ROOT is compiled into the library to locate the install base.
 #By default, the LIME_SUITE_ROOT is set to the CMAKE_INSTALL_PREFIX.
@@ -198,7 +155,6 @@ if(MSVC)
         message(FATAL_ERROR "MSVC version should be atleast v141 (Visual Studio 2017)")
     endif()
 
-    include_directories(${PROJECT_SOURCE_DIR}/external/msvc)
     add_compile_definitions(_CRT_SECURE_NO_WARNINGS NOMINMAX)
     add_compile_options("/MP" "/Zc:__cplusplus")
 
@@ -223,10 +179,6 @@ endif(MSVC)
 if(APPLE)
     add_compile_definitions(__unix__=1) #we use this for unix detection, but clang does not define it
 endif(APPLE)
-
-if(ENABLE_NEW_GAIN_BEHAVIOUR)
-    add_compile_definitions(NEW_GAIN_BEHAVIOUR)
-endif()
 
 ###########################################################################################
 # rpath setup - https://gitlab.kitware.com/cmake/community/-/wikis/doc/cmake/RPATH-handling
@@ -315,20 +267,35 @@ endif()
 ########################################################################
 ## lime suite ng build
 ########################################################################
-add_subdirectory(embedded)
-add_subdirectory(src)
+option(BUILD_CORE "Build limesuiteng core library" ON)
+add_feature_info("BUILD_CORE" BUILD_CORE "limesuiteng core library")
+if(BUILD_CORE)
+    add_subdirectory(embedded)
+    add_subdirectory(src)
+endif()
 
+########################################################################
 # Lime command line tools
-add_subdirectory(cli)
+########################################################################
+cmake_dependent_option(BUILD_CLI "Build command line interface applications" ON "BUILD_CORE" OFF)
+add_feature_info("BUILD_CLI" BUILD_CLI "command line interface applications")
+if(BUILD_CLI)
+    add_subdirectory(cli)
+endif()
 
 ########################################################################
 ## graphical interface
 ########################################################################
-add_subdirectory(GUI)
+cmake_dependent_option(BUILD_GUI "Build limeGUI application" ON "BUILD_CORE" OFF)
+add_feature_info("BUILD_GUI" BUILD_GUI "graphical user interface application (limeGUI)")
+if(BUILD_GUI)
+    add_subdirectory(GUI)
+endif()
 
 #########################################################################
 # GTest tests
 #########################################################################
+option(ENABLE_UNIT_TESTS "Use GoogleTest to test the library" OFF)
 if(ENABLE_UNIT_TESTS)
     enable_testing()
     add_subdirectory(tests)
@@ -337,41 +304,33 @@ endif()
 ########################################################################
 ## plugins for external programs
 ########################################################################
-add_subdirectory(plugins)
+cmake_dependent_option(BUILD_PLUGINS "Build LimeSuiteNG plugins for external software packages" ON "BUILD_CORE" OFF)
+add_feature_info("BUILD_PLUGINS" BUILD_PLUGINS "plugins for external software packages")
+if(BUILD_PLUGINS)
+    add_subdirectory(plugins)
+endif()
 
 ########################################################################
 ## udev rules for linux usb
 ########################################################################
-add_subdirectory(udev-rules)
+cmake_dependent_option(INSTALL_UDEV_RULES "Install Linux udev rules for LimeSDR devices" ON "UNIX" OFF)
+add_feature_info("INSTALL_UDEV_RULES" INSTALL_UDEV_RULES "Install Linux udev rules for LimeSDR devices")
+if(INSTALL_UDEV_RULES)
+    add_subdirectory(udev-rules)
+endif()
 
 ########################################################################
 ## Doxygen
 ########################################################################
-add_subdirectory(docs/doxygen)
-
-########################################################################
-# CMake Project config files
-########################################################################
-if(ENABLE_HEADERS AND ENABLE_LIBRARY)
-    include(CMakePackageConfigHelpers)
-    write_basic_package_version_file(
-        ${PROJECT_BINARY_DIR}/limesuitengConfigVersion.cmake
-        VERSION ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}
-        COMPATIBILITY SameMinorVersion)
-    install(FILES ${PROJECT_BINARY_DIR}/limesuitengConfigVersion.cmake DESTINATION lib${LIB_SUFFIX}/cmake/${PROJECT_NAME})
-
-    install(
-        EXPORT limesuitengTarget
-        NAMESPACE limesuiteng::
-        FILE limesuitengConfig.cmake
-        DESTINATION lib${LIB_SUFFIX}/cmake/${PROJECT_NAME})
-
-endif(ENABLE_HEADERS AND ENABLE_LIBRARY)
+option(BUILD_DOCS "Generate documentation" ON)
+add_feature_info("BUILD_DOCS" BUILD_DOCS "Build documentation")
+if(BUILD_DOCS)
+    add_subdirectory(docs/doxygen)
+endif()
 
 #########################################################################
 # summary
 #########################################################################
-include(FeatureSummary)
 message(STATUS "")
 message(STATUS "######################################################")
 feature_summary(WHAT PACKAGES_FOUND DESCRIPTION "Packages found:")
@@ -397,3 +356,11 @@ message(STATUS "Install prefix: ${CMAKE_INSTALL_PREFIX}")
 message(STATUS "Build timestamp: ${BUILD_TIMESTAMP}")
 message(STATUS "Lime Suite version: ${LIME_SUITE_VERSION}")
 message(STATUS "ABI/so version: ${LIME_SUITE_SOVER}")
+
+# Common packaging info, must be set before 'include(CPack)'
+include(packages/CPackProperties.cmake)
+
+include(CPack)
+
+# Uses cpack_* functions, that are available only after 'include(CPack)'
+include(packages/CPackComponentsMeta.cmake)

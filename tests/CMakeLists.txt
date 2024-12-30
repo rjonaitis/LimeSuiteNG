@@ -3,14 +3,6 @@
 ########################################################################
 include(CMakeDependentOption)
 include(FeatureSummary)
-option(ENABLE_UNIT_TESTS "Use GoogleTest to test the library" OFF)
-add_feature_info(TESTING ENABLE_UNIT_TESTS "Build GoogleTest tests to test the library")
-cmake_dependent_option(ENABLE_CODE_COVERAGE "Use gcov/lcov to generate a code coverage report" ON "ENABLE_UNIT_TESTS" OFF)
-
-if(NOT ENABLE_UNIT_TESTS)
-    return()
-endif()
-
 include(FetchContent)
 fetchcontent_declare(
     googletest
@@ -82,7 +74,7 @@ endif()
 target_compile_definitions(gtest-runner-hardware PRIVATE GTEST_LINKED_AS_SHARED_LIBRARY=0)
 target_link_libraries(
     gtest-runner-hardware
-    PRIVATE limesuiteng limesuiteng-legacyapi taywee::args cli-shared
+    PRIVATE limesuiteng limesuiteng-legacyapi taywee-args cli-shared
     PUBLIC $<BUILD_INTERFACE:GTest::gtest> $<BUILD_INTERFACE:GTest::gmock>)
 if(CMAKE_BINARY_DIR)
     set_target_properties(gtest-runner-hardware PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
@@ -93,6 +85,7 @@ endif()
 # include(GoogleTest)
 # gtest_discover_tests(${TESTS_CONTAINER_TARGET})
 
+# cmake_dependent_option(ENABLE_CODE_COVERAGE "Use gcov/lcov to generate a code coverage report" ON "ENABLE_UNIT_TESTS" OFF)
 # if(CMAKE_BUILD_TYPE STREQUAL "Debug"
 #    AND ENABLE_CODE_COVERAGE
 #    AND (NOT MSVC))

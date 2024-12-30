@@ -1,15 +1,14 @@
-include(FeatureSummary)
-include(CMakeDependentOption)
-cmake_dependent_option(ENABLE_CLI "Enable command line programs" ON "ENABLE_LIBRARY" OFF)
-add_feature_info(CLI ENABLE_CLI "LimeSuite command line interface tools")
-if(NOT ENABLE_CLI)
-    return()
-endif()
+project(
+    "limesuiteng-cli"
+    DESCRIPTION "LimeSuiteNG Command Line Interface applications"
+    VERSION 1.0.0
+    LANGUAGES CXX)
+
+find_package(kissfft CONFIG REQUIRED)
 
 # common functionality among cli tools
 add_library(cli-shared STATIC common.cpp)
-target_include_directories(cli-shared PUBLIC ${CMAKE_CURRENT_LIST_DIR})
-target_link_libraries(cli-shared PUBLIC limesuiteng taywee::args)
+target_link_libraries(cli-shared PUBLIC limesuiteng taywee-args)
 
 target_precompile_headers(cli-shared PRIVATE ${CPP_STL_PCH} \"args.hxx\")
 
@@ -43,4 +42,7 @@ set_target_properties(limeOEM PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINAR
 target_link_libraries(limeOEM PRIVATE cli-shared)
 target_precompile_headers(limeOEM REUSE_FROM cli-shared)
 
-install(TARGETS limeDevice limeSPI limeFLASH limeTRX limeConfig limeOEM DESTINATION bin)
+install(
+    TARGETS limeDevice limeSPI limeFLASH limeTRX limeConfig limeOEM
+    COMPONENT cli
+    DESTINATION bin)
