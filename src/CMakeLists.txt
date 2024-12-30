@@ -138,7 +138,7 @@ find_package(Threads REQUIRED)
 target_link_libraries(
     limesuiteng
     PUBLIC Threads::Threads
-    PRIVATE rang cpp-feather-ini-parser)
+    PRIVATE $<BUILD_INTERFACE:rang> $<BUILD_INTERFACE:cpp-feather-ini-parser>)
 
 target_include_directories(
     limesuiteng
