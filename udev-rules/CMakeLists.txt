@@ -1,7 +1,7 @@
 project(
     limesuiteng-udev
     DESCRIPTION "Linux UDEV rules for LimeSuiteNG supported devices"
-    VERSION 1.0.0.0
+    VERSION 1.0.0
     LANGUAGES NONE
     HOMEPAGE_URL https://github.com/myriadrf/LimeSuiteNG/tree/develop/udev-rules)
 
@@ -14,9 +14,9 @@ install(
     DESTINATION ${UDEV_RULES_INSTALL_PATH}
     COMPONENT udev-rules)
 
-option(UDEV_RULES_RELOAD "Reload UDEV rules after install" ON)
-add_feature_info("UDEV_RULES_RELOAD" UDEV_RULES_RELOAD "Reload UDEV rules after install")
-if(UDEV_RULES_RELOAD)
+option(UDEV_RULES_RELOAD_ON_INSTALL "Reload UDEV rules after install" ON)
+add_feature_info("UDEV_RULES_RELOAD_ON_INSTALL" UDEV_RULES_RELOAD_ON_INSTALL "Reload UDEV rules after install")
+if(UDEV_RULES_RELOAD_ON_INSTALL)
     install(
         CODE "
         MESSAGE(\"Reloading udev rules:\")
