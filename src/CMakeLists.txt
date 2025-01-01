@@ -49,6 +49,27 @@ endif()
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 
+option(INSTALL_DEVELOPMENT "Install limesuiteng headers & development files" ON)
+add_feature_info("INSTALL_DEVELOPMENT" INSTALL_DEVELOPMENT "Install limesuiteng headers & development files")
+if(INSTALL_DEVELOPMENT)
+    install(
+        FILES ${CMAKE_CURRENT_BINARY_DIR}/limesuiteng.pc
+        COMPONENT dev
+        DESTINATION lib${LIB_SUFFIX}/pkgconfig)
+
+    install(
+        FILES ${PROJECT_BINARY_DIR}/limesuitengConfigVersion.cmake
+        COMPONENT dev
+        DESTINATION lib${LIB_SUFFIX}/cmake/limesuiteng)
+
+    install(
+        EXPORT limesuitengTarget
+        NAMESPACE limesuiteng::
+        FILE limesuitengConfig.cmake
+        DESTINATION lib${LIB_SUFFIX}/cmake/limesuiteng
+        COMPONENT dev)
+endif(INSTALL_DEVELOPMENT)
+
 add_subdirectory(include)
 
 option(ENABLE_NEW_GAIN_BEHAVIOUR "Enable new gain functionality" OFF)
@@ -78,27 +99,6 @@ install(
     ARCHIVE DESTINATION lib${LIB_SUFFIX} # .lib file
     RUNTIME DESTINATION bin # .dll file
 )
-
-option(INSTALL_DEVELOPMENT "Install limesuiteng headers & development files" ON)
-add_feature_info("INSTALL_DEVELOPMENT" INSTALL_DEVELOPMENT "Install limesuiteng headers & development files")
-if(INSTALL_DEVELOPMENT)
-    install(
-        FILES ${CMAKE_CURRENT_BINARY_DIR}/limesuiteng.pc
-        COMPONENT dev
-        DESTINATION lib${LIB_SUFFIX}/pkgconfig)
-
-    install(
-        FILES ${PROJECT_BINARY_DIR}/limesuitengConfigVersion.cmake
-        COMPONENT dev
-        DESTINATION lib${LIB_SUFFIX}/cmake/limesuiteng)
-
-    install(
-        EXPORT limesuitengTarget
-        NAMESPACE limesuiteng::
-        FILE limesuitengConfig.cmake
-        DESTINATION lib${LIB_SUFFIX}/cmake/limesuiteng
-        COMPONENT dev)
-endif(INSTALL_DEVELOPMENT)
 
 ########################################################################
 ## lime suite library
