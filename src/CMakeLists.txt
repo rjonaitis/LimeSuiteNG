@@ -83,7 +83,6 @@ endif()
 include(CMakePackageConfigHelpers)
 write_basic_package_version_file(
     ${PROJECT_BINARY_DIR}/limesuitengConfigVersion.cmake
-    VERSION ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}
     COMPATIBILITY SameMinorVersion)
 
 ########################################################################
