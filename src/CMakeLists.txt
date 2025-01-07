@@ -81,9 +81,7 @@ endif()
 # CMake Project config files
 ########################################################################
 include(CMakePackageConfigHelpers)
-write_basic_package_version_file(
-    ${PROJECT_BINARY_DIR}/limesuitengConfigVersion.cmake
-    COMPATIBILITY SameMinorVersion)
+write_basic_package_version_file(${PROJECT_BINARY_DIR}/limesuitengConfigVersion.cmake COMPATIBILITY SameMinorVersion)
 
 ########################################################################
 # Build pkg config file
