@@ -19,6 +19,22 @@
 
 #include "comms/ISerialPort.h"
 
+#define DEBUG_SPI 0
+
+static std::string PacketToString(const lime::LMS64CPacket& pkt)
+{
+    std::stringstream ss;
+    ss << std::hex << std::setfill('0');
+    const uint8_t* bytes = reinterpret_cast<const uint8_t*>(&pkt);
+    int i = 0;
+    for (; i < 8; ++i) // header
+        ss << ' ' << std::setw(2) << static_cast<uint32_t>(bytes[i]); // need to cast otherwise prints bytes as characters
+    ss << " |";
+    for (; i < 8 + pkt.blockCount * 4; ++i) // payload
+        ss << ' ' << std::setw(2) << static_cast<uint32_t>(bytes[i]); // need to cast otherwise prints bytes as characters
+    return ss.str();
+}
+
 using namespace std::literals::string_literals;
 using namespace std::literals::string_view_literals;
 
@@ -235,7 +251,15 @@ static OpStatus SPI16(ISerialPort& port,
             ++srcIndex;
         }
 
+#if DEBUG_SPI
+        std::string msg = PacketToString(pkt);
+        lime::log(LogLevel::Debug, "Wr:"s + msg);
+#endif
         OpStatus status = RunControlCommand(port, reinterpret_cast<uint8_t*>(&pkt), sizeof(pkt), 2000);
+#if DEBUG_SPI
+        msg = PacketToString(pkt);
+        lime::log(LogLevel::Debug, "Rd:"s + msg);
+#endif
         if (status != OpStatus::Success)
             return status;
 
