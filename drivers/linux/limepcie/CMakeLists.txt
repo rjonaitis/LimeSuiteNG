@@ -7,7 +7,7 @@ include(CMakeDependentOption)
 
 project(
     limepcie
-    VERSION 0.1.8
+    VERSION 0.1.9
     DESCRIPTION "Linux kernel module for LimeSDR PCIe based devices"
     LANGUAGES C)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_LIST_DIR}/cmake")

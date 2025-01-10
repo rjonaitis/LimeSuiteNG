@@ -1411,7 +1411,13 @@ static int limepcie_device_init(struct limepcie_device *myDevice, struct pci_dev
     }
     else
     {
+#if defined(CONFIG_X86_64)
         const uint32_t dmaBufferSize = 65536; // actual buffer on device can be smaller, but they support scatter/gather
+#else
+        // For Arm platforms use smaller dma buffers, because cpu cache flush flushes the entire buffer, not just the part used for transfer.
+        const uint32_t dmaBufferSize = PAGE_SIZE > 8192 ? PAGE_SIZE : 8192;
+#endif
+        dev_info(sysDev, "DMA buffer size(%i)\n", dmaBufferSize);
         int32_t dmaFullDuplexChannels = limepcie_readl(myDevice, CSR_CNTRL_NDMA_ADDR);
         if (dmaFullDuplexChannels > MAX_DMA_CHANNEL_COUNT || dmaFullDuplexChannels < 0)
         {
