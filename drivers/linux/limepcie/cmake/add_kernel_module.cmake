@@ -79,7 +79,7 @@ function(add_kernel_module)
         COMMAND ${KBUILD_CLEAN_CMD}
         COMMAND ${KBUILD_CMD}
         WORKING_DIRECTORY ${KBUILD_FILE_DIR}
-        DEPENDS ${CMAKE_CURRENT_LIST_DIR} # rebuild if anything changes in the source dir
+        DEPENDS ${KMOD_SOURCES} # rebuild if anything changes in the source dir
         VERBATIM
         COMMENT "Building Linux kernel module (${KMOD_NAME}) in dir: ${KBUILD_FILE_DIR}")
 
