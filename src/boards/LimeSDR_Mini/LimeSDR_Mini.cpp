@@ -36,6 +36,17 @@ using namespace std::literals::string_literals;
 namespace lime {
 namespace limesdrmini {
 
+// hardware versions reported by gateware
+// v1.0 - 0
+// v1.1 - 0
+// v1.2 - 0
+// v1.3 - 3
+// v2.0 - 3
+// v2.1 - 4
+// v2.2 - 5
+// v2.3 - 6
+// v2.4 - 7
+
 static const uint8_t SPI_LMS7002M = 0;
 static const uint8_t SPI_FPGA = 1;
 
@@ -562,7 +573,7 @@ OpStatus LimeSDR_Mini::UploadMemory(
     std::vector<char> v1_buffer;
 
     FPGA::GatewareInfo gw = mFPGA->GetGatewareInfo();
-    if (gw.hardwareVersion < 3) // LimeSDR-Mini v1.X
+    if (gw.boardID == LMS_DEV_LIMESDRMINI && gw.hardwareVersion <= 3) // LimeSDR-Mini v1.X
     {
         if (gw.version != 0)
         {
