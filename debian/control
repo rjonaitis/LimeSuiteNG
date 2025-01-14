@@ -24,6 +24,10 @@ Architecture: any
 Depends:
     liblimesuiteng,
     limesuiteng-gui,
+    limesuiteng-cli,
+Recommends:
+    limesuiteng-gnuradio,
+    limesuiteng-soapysdr
 Description: metapackage for installing all LimeSuiteNG components.
  This package installs all LimeSuiteNG available components
 
@@ -97,6 +101,8 @@ Depends:
     ${shlibs:Depends},
     ${misc:Depends},
     gnuradio
+Enhances:
+    gnuradio
 Description: GNU Radio plugin of LimeSDR devices
 
 Package: limesuiteng-soapysdr
@@ -106,4 +112,6 @@ Multi-Arch: same
 Depends:
     ${shlibs:Depends},
     ${misc:Depends},
+Enhances:
+    libsoapysdr0.8
 Description: bindings for SoapySDR
