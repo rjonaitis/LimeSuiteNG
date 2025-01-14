@@ -19,8 +19,6 @@
 #include <set>
 #include <vector>
 
-struct IConnectionStream;
-
 namespace lime {
 class SDRDevice;
 }
