@@ -9,7 +9,8 @@ Build-Depends:
     debhelper-compat (= 13),
     cmake (>= 3.15),
     libusb-1.0-0-dev,
-    libwxgtk3.0-dev | libwxgtk3.0-gtk3-dev | libwxgtk3.2-dev,
+    libglew-dev,
+    libwxgtk3.0-dev | libwxgtk3.0-gtk3-dev | libwxgtk3.2-dev
 Standards-Version: 4.1.1
 Homepage: https://discourse.myriadrf.org/
 Vcs-Git: https://github.com/myriadrf/LimeSuiteNG.git
