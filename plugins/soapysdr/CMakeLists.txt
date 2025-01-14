@@ -2,7 +2,7 @@
 ## SoapySDR bindings for LimeSuiteNG
 ########################################################################
 
-find_package(SoapySDR CONFIG)
+find_package(SoapySDR CONFIG REQUIRED)
 set_package_properties(
     SoapySDR PROPERTIES
     TYPE OPTIONAL
@@ -11,7 +11,7 @@ set_package_properties(
 ########################################################################
 ## Build support module
 ########################################################################
-soapy_sdr_module_util(TARGET Soapy_limesuiteng SOURCES Registration.cpp Settings.cpp Streaming.cpp LIBRARIES limesuiteng)
+soapy_sdr_module_util(TARGET limesuiteng-soapysdr SOURCES Registration.cpp Settings.cpp Streaming.cpp LIBRARIES limesuiteng)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     # Disable warnings for unused parameters

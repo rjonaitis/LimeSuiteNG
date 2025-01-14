@@ -31,7 +31,7 @@ find_package(SoapySDR CONFIG)
 cmake_dependent_option(BUILD_PLUGINS_SOAPYSDR "Build LimeSuiteNG SoapySDR bindings" ON "BUILD_CORE;SoapySDR_FOUND" OFF)
 add_feature_info("BUILD_PLUGINS_SOAPYSDR" BUILD_PLUGINS_SOAPYSDR "SoapySDR bindings for LimeSuiteNG")
 if(BUILD_PLUGINS_SOAPYSDR)
-    add_subdirectory(Soapy_limesuiteng)
+    add_subdirectory(soapysdr)
 endif()
 
 ########################################################################
