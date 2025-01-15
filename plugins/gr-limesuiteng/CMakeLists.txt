@@ -21,9 +21,8 @@ if(NOT DEFINED CMAKE_MINIMUM_REQUIRED_VERSION)
 endif()
 project(gr-limesuiteng CXX C)
 enable_testing()
-
 # workaround for adding this directory as optional sub project, because find_package(Gnuradio) is sensitive to which project initiates it
-if(NOT ${CMAKE_PROJECT_NAME} EQUAL ${PROJECT_NAME})
+if(NOT ${CMAKE_PROJECT_NAME} STREQUAL ${PROJECT_NAME})
     find_package(Gnuradio QUIET) # pre-check if any gnuradio package is available
     include(CMakeDependentOption)
     include(FeatureSummary)
