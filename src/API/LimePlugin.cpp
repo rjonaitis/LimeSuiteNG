@@ -841,16 +841,25 @@ OpStatus ConfigureStreaming(LimePluginContext* context, const LimeRuntimeParamet
         streamCfg.userData = static_cast<void*>(&portStreamStates[p]);
         streamCfg.hintSampleRate = params->rf_ports[p].sample_rate;
 
+        int rx_channel_remaining = params->rf_ports[p].rx_channel_count;
+        int tx_channel_remaining = params->rf_ports[p].tx_channel_count;
+
         for (auto& dev : port.nodes)
         {
             if (!dev->assignedToPort)
                 continue;
-            std::vector<uint8_t> channels;
-            for (int i = 0; i < dev->configInputs.maxChannelsToUse; ++i)
-                channels.push_back(i);
 
-            streamCfg.channels[TRXDir::Rx] = channels;
-            streamCfg.channels[TRXDir::Tx] = channels;
+            for (int i = 0; i < dev->configInputs.maxChannelsToUse && rx_channel_remaining > 0; ++i)
+            {
+                streamCfg.channels[TRXDir::Rx].push_back(i);
+                --rx_channel_remaining;
+            }
+
+            for (int i = 0; i < dev->configInputs.maxChannelsToUse && tx_channel_remaining > 0; ++i)
+            {
+                streamCfg.channels[TRXDir::Tx].push_back(i);
+                --tx_channel_remaining;
+            }
 
             std::unique_ptr<RFStream> rfstream = dev->device->StreamCreate(streamCfg, dev->chipIndex);
             if (!rfstream)
