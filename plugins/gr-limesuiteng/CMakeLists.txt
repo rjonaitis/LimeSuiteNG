@@ -20,6 +20,7 @@ if(NOT DEFINED CMAKE_MINIMUM_REQUIRED_VERSION)
     cmake_minimum_required(VERSION 3.15)
 endif()
 project(gr-limesuiteng CXX C)
+message(STATUS "##### <${PROJECT_NAME}> #####")
 enable_testing()
 # workaround for adding this directory as optional sub project, because find_package(Gnuradio) is sensitive to which project initiates it
 if(NOT ${CMAKE_PROJECT_NAME} STREQUAL ${PROJECT_NAME})
@@ -180,3 +181,5 @@ install(
     RENAME MANIFEST-${VERSION_MAJOR}.${VERSION_API}.${VERSION_ABI}${VERSION_PATCH}.yml
     DESTINATION share/gnuradio/manifests/limesuiteng
     COMPONENT gr-limesuiteng)
+
+message(STATUS "##### </${PROJECT_NAME}> #####")

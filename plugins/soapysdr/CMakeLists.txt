@@ -7,6 +7,8 @@ project(
     DESCRIPTION "LimeSuiteNG bindings for SoapySDR"
     LANGUAGES C CXX)
 
+message(STATUS "##### <${PROJECT_NAME}> #####")
+
 find_package(SoapySDR CONFIG REQUIRED)
 set_package_properties(
     SoapySDR PROPERTIES
@@ -23,3 +25,5 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     # Disable warnings for unused parameters
     target_compile_options(limesuitengSupport PRIVATE -Wno-unused-parameter)
 endif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+
+message(STATUS "##### </${PROJECT_NAME}> #####")

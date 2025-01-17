@@ -4,6 +4,8 @@ endif()
 
 project("limesuiteng-amarisoft-plugin")
 
+message(STATUS "##### <${PROJECT_NAME}> #####")
+
 set(CMAKE_CONFIGURATION_TYPES
     "Debug;Release;RelWithDebInfo"
     CACHE STRING INTERNAL FORCE)
@@ -64,3 +66,5 @@ target_link_libraries(${AMARISOFT_PLUGIN_TARGET_NAME} limesuiteng)
 
 #remove lib prefix, Amarisoft searches for trx_*.so
 set_target_properties(${AMARISOFT_PLUGIN_TARGET_NAME} PROPERTIES PREFIX "")
+
+message(STATUS "##### </${PROJECT_NAME}> #####")

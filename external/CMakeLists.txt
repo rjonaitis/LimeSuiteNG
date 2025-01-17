@@ -1,3 +1,4 @@
+message(STATUS "##### <external> #####")
 # Download and compile needed externals
 include(FetchContent)
 
@@ -121,3 +122,5 @@ if(NOT rang_POPULATED)
     fetchcontent_populate(rang)
     add_subdirectory(${rang_SOURCE_DIR} ${rang_BINARY_DIR} EXCLUDE_FROM_ALL)
 endif()
+
+message(STATUS "##### </external> #####")
