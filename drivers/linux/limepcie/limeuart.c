@@ -389,7 +389,12 @@ err_erase_id:
     return ret;
 }
 
+// https://github.com/torvalds/linux/commit/0edb555a65d1ef047a9805051c36922b52a38a9d
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 11, 0)
 static int limeuart_remove(struct platform_device *pdev)
+#else
+static void limeuart_remove(struct platform_device *pdev)
+#endif
 {
     dev_dbg(&pdev->dev, "%s\n", __func__);
     struct uart_port *port = platform_get_drvdata(pdev);
@@ -400,8 +405,9 @@ static int limeuart_remove(struct platform_device *pdev)
     uart_remove_one_port(&limeuart_driver, port);
 
     xa_erase(&limeuart_array, luart->index);
-
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 11, 0)
     return 0;
+#endif
 }
 
 static ssize_t driver_dev_symlink_name_show(struct device *dev, struct device_attribute *attr, char *buf)
