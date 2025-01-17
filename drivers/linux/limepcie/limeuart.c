@@ -161,7 +161,7 @@ static void limeuart_stop_tx(struct uart_port *port)
 static void limeuart_start_tx(struct uart_port *port)
 {
     dev_dbg(port->dev, "%s\n", __func__);
-    struct circ_buf *xmit = &port->state->xmit;
+    struct tty_port *tport = &port->state->port;
     unsigned char ch;
 
     if (unlikely(port->x_char))
@@ -170,18 +170,16 @@ static void limeuart_start_tx(struct uart_port *port)
         port->icount.tx++;
         port->x_char = 0;
     }
-    else if (!uart_circ_empty(xmit))
+    else if (!kfifo_is_empty(&tport->xmit_fifo))
     {
-        while (xmit->head != xmit->tail)
+        while (kfifo_get(&tport->xmit_fifo, &ch))
         {
-            ch = xmit->buf[xmit->tail];
-            xmit->tail = (xmit->tail + 1) & (UART_XMIT_SIZE - 1);
             port->icount.tx++;
             limeuart_putchar(port, ch);
         }
     }
 
-    if (uart_circ_chars_pending(xmit) < WAKEUP_CHARS)
+    if (kfifo_len(&tport->xmit_fifo) < WAKEUP_CHARS)
         uart_write_wakeup(port);
 }
 
