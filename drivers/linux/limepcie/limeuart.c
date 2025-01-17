@@ -2,6 +2,7 @@
 // #define DEBUG
 
 #include <linux/console.h>
+#include <linux/kfifo.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
@@ -161,9 +162,33 @@ static void limeuart_stop_tx(struct uart_port *port)
 static void limeuart_start_tx(struct uart_port *port)
 {
     dev_dbg(port->dev, "%s\n", __func__);
-    struct tty_port *tport = &port->state->port;
     unsigned char ch;
 
+// https://github.com/torvalds/linux/commit/4e2a44c1408b6a6a46122704511234f68cf012b8
+// before kfifo was added to tty_port
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 18, 0)
+    struct circ_buf *xmit = &port->state->xmit;
+    if (unlikely(port->x_char))
+    {
+        litex_write8(port->membase + OFF_RXTX, port->x_char);
+        port->icount.tx++;
+        port->x_char = 0;
+    }
+    else if (!uart_circ_empty(xmit))
+    {
+        while (xmit->head != xmit->tail)
+        {
+            ch = xmit->buf[xmit->tail];
+            xmit->tail = (xmit->tail + 1) & (UART_XMIT_SIZE - 1);
+            port->icount.tx++;
+            limeuart_putchar(port, ch);
+        }
+    }
+
+    if (uart_circ_chars_pending(xmit) < WAKEUP_CHARS)
+        uart_write_wakeup(port);
+#else
+    struct tty_port *tport = &port->state->port;
     if (unlikely(port->x_char))
     {
         litex_write8(port->membase + OFF_RXTX, port->x_char);
@@ -181,6 +206,7 @@ static void limeuart_start_tx(struct uart_port *port)
 
     if (kfifo_len(&tport->xmit_fifo) < WAKEUP_CHARS)
         uart_write_wakeup(port);
+#endif
 }
 
 static void limeuart_stop_rx(struct uart_port *port)
