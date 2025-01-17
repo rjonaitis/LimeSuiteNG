@@ -1174,15 +1174,18 @@ OpStatus LMS7002M_SDRDevice::LMS7002ChannelCalibration(LMS7002M& chip, const Cha
     }
 
     OpStatus rxStatus = OpStatus::Success;
-    if (ch.rx.calibrate && ch.rx.enabled)
+    if ((ch.rx.calibrate & CalibrationFlag::DCIQ) && ch.rx.enabled)
     {
         rxStatus = chip.CalibrateRx(ch.rx.sampleRate);
     }
 
     OpStatus txStatus = OpStatus::Success;
-    if (ch.tx.calibrate && ch.tx.enabled)
+    if (ch.tx.enabled)
     {
-        txStatus = chip.CalibrateTx(ch.tx.sampleRate);
+        if (ch.tx.calibrate & CalibrationFlag::DCIQ)
+            txStatus = chip.CalibrateTx(ch.tx.sampleRate);
+        if (ch.tx.calibrate & CalibrationFlag::FILTER)
+            chip.CalibrateTxGain();
     }
 
     if (rxStatus != OpStatus::Success || txStatus != OpStatus::Success)

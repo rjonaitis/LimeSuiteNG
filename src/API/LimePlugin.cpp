@@ -79,8 +79,6 @@ LimePluginContext::LimePluginContext()
     ports.reserve(LIME_TRX_MAX_RF_PORT);
 }
 
-enum CalibrateFlag { None = 0, DCIQ = 1, Filter = 2 };
-
 template<class T>
 static bool GetSetting [[gnu::format(printf, 3, 4)]] (LimeSettingsProvider* settings, T* pval, const char* prop_name_format, ...)
 {
@@ -649,23 +647,22 @@ static OpStatus TransferDeviceDirectionalSettings(
     if (settings.lo_override > 0)
         trx.centerFrequency = settings.lo_override;
 
-    int flag = CalibrateFlag::Filter; // by default calibrate only filters
     if (!settings.calibration.empty())
     {
-        const char* value = settings.calibration.c_str();
-        // strcasecmp is not a function in the C++ standard
-        if (!strcasecmp(value, "none"))
-            flag = CalibrateFlag::None;
-        else if ((!strcasecmp(value, "force")) || (!strcasecmp(value, "all")))
-            flag = CalibrateFlag::Filter | CalibrateFlag::DCIQ;
-        else if (!strcasecmp(value, "filter"))
-            flag = CalibrateFlag::Filter;
-        else if (!strcasecmp(value, "dciq"))
-            flag = CalibrateFlag::DCIQ;
+        int flag = CalibrationFlag::NONE;
+        const std::map<std::string, uint32_t> options = { { "none", CalibrationFlag::NONE },
+            { "dciq", CalibrationFlag::DCIQ },
+            { "filter", CalibrationFlag::FILTER },
+            { "all", CalibrationFlag::DCIQ | CalibrationFlag::FILTER },
+            { "force", CalibrationFlag::DCIQ | CalibrationFlag::FILTER } };
+        for (const auto& option : options)
+        {
+            std::size_t found = settings.calibration.find(option.first);
+            if (found != std::string::npos)
+                flag |= option.second;
+        }
+        trx.calibrate = static_cast<CalibrationFlag>(flag);
     }
-
-    if (flag & DCIQ)
-        trx.calibrate = true;
 
     // copy setting to all channels
     for (int i = 1; i < 2; ++i)
