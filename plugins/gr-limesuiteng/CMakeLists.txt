@@ -46,13 +46,14 @@ if(DEFINED ENV{PYBOMBS_PREFIX})
     message(STATUS "PyBOMBS installed GNU Radio. Defaulting CMAKE_INSTALL_PREFIX to $ENV{PYBOMBS_PREFIX}")
 endif()
 
-# Make sure our local CMake Modules path comes first
-list(INSERT CMAKE_MODULE_PATH 0 ${PROJECT_SOURCE_DIR}/cmake/Modules)
 # Find gnuradio to get access to the cmake modules
 find_package(Gnuradio "3.10" REQUIRED)
 if(NOT Gnuradio_FOUND)
     return()
 endif()
+
+# Make sure our local CMake Modules path comes first
+list(INSERT CMAKE_MODULE_PATH 0 ${PROJECT_SOURCE_DIR}/cmake/Modules)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     execute_process(
