@@ -26,7 +26,7 @@ RFStream_X8::RFStream_X8(LimeSDR_MMX8* parentDevice, std::unique_ptr<lime::RFStr
 RFStream_X8::~RFStream_X8()
 {
     Stop();
-};
+}
 
 uint64_t RFStream_X8::GetHardwareTimestamp() const
 {
@@ -123,4 +123,4 @@ void RFStream_X8::StreamStatus(StreamStats* rx, StreamStats* tx)
 {
     stream->StreamStatus(rx, tx);
 }
-}; // namespace lime
+} // namespace lime
