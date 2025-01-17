@@ -50,9 +50,25 @@ endif()
 list(INSERT CMAKE_MODULE_PATH 0 ${PROJECT_SOURCE_DIR}/cmake/Modules)
 # Find gnuradio to get access to the cmake modules
 find_package(Gnuradio "3.10" REQUIRED)
-
 if(NOT Gnuradio_FOUND)
     return()
+endif()
+
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    execute_process(
+        COMMAND gnuradio-config-info --cxx
+        OUTPUT_VARIABLE GNURADIO_CXX_VERSION
+        OUTPUT_STRIP_TRAILING_WHITESPACE)
+
+    string(FIND ${GNURADIO_CXX_VERSION} ${CMAKE_CXX_COMPILER_VERSION} CXX_VERSIONS_MATCH)
+    if(${CXX_VERSIONS_MATCH} EQUAL -1)
+        message(
+            WARNING
+                "Currently used compiler version (${CMAKE_CXX_COMPILER_VERSION}) does not match GNURadio compiler.
+        GNURadio compiled with (${GNURADIO_CXX_VERSION}).
+        This can result in gnuradio-companion Python bindings failure to import symbols, if the compiler major versions are different."
+        )
+    endif()
 endif()
 
 # Set the version information here
