@@ -25,13 +25,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Add GNURadio PPA
-        if: ${{ matrix.os == 'ubuntu-22.04'}}
-        run: |
-          sudo add-apt-repository ppa:gnuradio/gnuradio-releases
-
       - name: Install GNURadio
-        if: ${{ matrix.os != 'ubuntu-20.04'}}
+        if: ${{ matrix.os != 'ubuntu-20.04'}} # 20.04 has GNURadio 3.8.1, it's python bindings are not using pybind11, so not compatible
         run: |
           sudo apt-get update
           sudo apt-get install -qq gnuradio-dev python3-packaging
