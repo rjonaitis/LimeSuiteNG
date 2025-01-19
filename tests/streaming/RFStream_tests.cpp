@@ -56,6 +56,8 @@ void RFStream_tests::SetUp()
 
 void RFStream_tests::TearDown()
 {
+    if (stream)
+        stream.reset();
     DeviceRegistry::freeDevice(device);
 }
 
@@ -246,6 +248,82 @@ TEST_F(RFStream_tests, RepeatedSetupDestroyWorks)
     //Stop streaming
     stream->Stop();
     // device->StreamDestroy(moduleIndex);
+}
+
+TEST_F(RFStream_tests, StreamStatusCallbackCalledIfRxOverrun)
+{
+    StreamConfig streamCfg;
+    streamCfg.channels[TRXDir::Rx] = { 0 };
+    streamCfg.format = DataFormat::I16;
+    streamCfg.linkFormat = DataFormat::I12;
+
+    long overrun_count = 0;
+    auto lambda_callback = [](bool isTx, const StreamStats* stats, void* userData) -> bool {
+        long* overrun = reinterpret_cast<long*>(userData);
+        *overrun = stats->overrun;
+        return true;
+    };
+
+    streamCfg.userData = &overrun_count;
+    streamCfg.statusCallback = lambda_callback;
+
+    stream = std::move(device->StreamCreate(streamCfg, moduleIndex));
+    ASSERT_TRUE(stream);
+
+    stream->Start();
+
+    // should be lone enough to allow filling up internal buffers
+    std::this_thread::sleep_for(std::chrono::milliseconds(150));
+
+    ASSERT_GT(overrun_count, 0);
+    stream->Stop();
+    stream.reset();
+}
+
+TEST_F(RFStream_tests, StreamStatusCallbackCalledIfTxUnderrun)
+{
+    StreamConfig streamCfg;
+    streamCfg.channels[TRXDir::Tx] = { 0 };
+    streamCfg.format = DataFormat::I16;
+    streamCfg.linkFormat = DataFormat::I12;
+
+    long underrun_count = 0;
+    auto lambda_callback = [](bool isTx, const StreamStats* stats, void* userData) -> bool {
+        if (!isTx)
+            return false;
+        long* underrun = reinterpret_cast<long*>(userData);
+        *underrun = stats->underrun;
+        return true;
+    };
+
+    streamCfg.userData = &underrun_count;
+    streamCfg.statusCallback = lambda_callback;
+
+    complex16_t samples[1024];
+    complex16_t* txSamples[2] = { samples, nullptr };
+
+    stream = std::move(device->StreamCreate(streamCfg, moduleIndex));
+    ASSERT_TRUE(stream);
+
+    stream->Start();
+
+    // should be lone enough to allow filling up internal buffers
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+    StreamMeta txMeta{};
+    txMeta.waitForTimestamp = true;
+    txMeta.timestamp = 10;
+    txMeta.flushPartialPacket = true;
+
+    int sent = stream->StreamTx(txSamples, 1024, &txMeta);
+    ASSERT_GT(sent, 0);
+
+    // give some time to process the queued packets
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+    ASSERT_GT(underrun_count, 0);
+    stream->Stop();
+    stream.reset();
 }
 
 } // namespace lime::testing

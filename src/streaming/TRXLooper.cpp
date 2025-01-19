@@ -625,12 +625,12 @@ void TRXLooper::ReceivePacketsLoop()
                 //     pkt->counter - expectedTS);
                 ++stats.loss;
                 loss.add(1);
-                // reportProblems = true;
+                reportProblems = true;
             }
             if (pkt->txWasDropped())
             {
                 ++stats.late;
-                // reportProblems = true; // don't spam if tx continuously has late packets
+                reportProblems = true;
             }
 
             const int payloadSize{ packetSize - headerSize };
@@ -666,6 +666,7 @@ void TRXLooper::ReceivePacketsLoop()
             ++stats.overrun;
             overrun.add(1);
             outputPkt->Reset();
+            reportProblems = true;
         }
 
         mRxArgs.dma->BufferOwnership(currentBufferIndex, DataTransferDirection::HostToDevice);
@@ -1055,6 +1056,7 @@ void TRXLooper::TransmitPacketsLoop()
             totalBytesSent = 0;
         }
 
+        bool reportProblems = false;
         // collect and transform samples data to output buffer
         while (!outputReady && output.hasSpace() && !mTx.terminate.load(std::memory_order_relaxed))
         {
@@ -1099,6 +1101,7 @@ void TRXLooper::TransmitPacketsLoop()
                     ++stats.underrun;
                     mTx.memPool->Free(srcPkt);
                     srcPkt = nullptr;
+                    reportProblems = true;
                     continue;
                 }
             }
@@ -1118,6 +1121,10 @@ void TRXLooper::TransmitPacketsLoop()
                 break;
             }
         }
+
+        // one callback for the entire batch
+        if (reportProblems && mConfig.statusCallback)
+            mConfig.statusCallback(true, &stats, mConfig.userData);
 
         bool canSend = pendingWrites.size() < bufferCount - 1;
         if (!canSend)
