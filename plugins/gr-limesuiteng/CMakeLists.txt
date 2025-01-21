@@ -16,12 +16,16 @@ set(CMAKE_BUILD_TYPE
 ########################################################################
 # Project setup
 ########################################################################
-if(NOT DEFINED CMAKE_MINIMUM_REQUIRED_VERSION)
-    cmake_minimum_required(VERSION 3.15)
-endif()
+cmake_minimum_required(VERSION 3.15)
+
 project(gr-limesuiteng CXX C)
 message(STATUS "##### <${PROJECT_NAME}> #####")
 enable_testing()
+
+# override GrPython, so it would correctly detect python packages install directory
+# otherwise it would try to install into /usr/local/lib/python... when packaging
+include(cmake/GrPython.cmake)
+
 # workaround for adding this directory as optional sub project, because find_package(Gnuradio) is sensitive to which project initiates it
 if(NOT ${CMAKE_PROJECT_NAME} STREQUAL ${PROJECT_NAME})
     find_package(Gnuradio QUIET) # pre-check if any gnuradio package is available
