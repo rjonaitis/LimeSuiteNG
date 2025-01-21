@@ -24,7 +24,9 @@ enable_testing()
 
 # override GrPython, so it would correctly detect python packages install directory
 # otherwise it would try to install into /usr/local/lib/python... when packaging
-include(cmake/GrPython.cmake)
+if(NOT APPLE)
+    include(cmake/GrPython.cmake)
+endif()
 
 # workaround for adding this directory as optional sub project, because find_package(Gnuradio) is sensitive to which project initiates it
 if(NOT ${CMAKE_PROJECT_NAME} STREQUAL ${PROJECT_NAME})
