@@ -56,10 +56,10 @@ class LimeSDR_X3 : public LMS7002M_SDRDevice
     OpStatus InitLMS1(bool skipTune = false);
     OpStatus InitLMS2(bool skipTune = false);
     OpStatus InitLMS3(bool skipTune = false);
-    void PreConfigure(const SDRConfig& cfg, uint8_t socIndex);
-    void PostConfigure(const SDRConfig& cfg, uint8_t socIndex);
+    OpStatus ConfigureLMS1(const SDRConfig& config);
+    OpStatus ConfigureLMS2(const SDRConfig& config);
+    OpStatus ConfigureLMS3(const SDRConfig& config);
     void LMS1_PA_Enable(uint8_t chan, bool enabled);
-    void LMS1_SetSampleRate(double f_Hz, uint8_t rxDecimation, uint8_t txInterpolation);
     void LMS1SetPath(TRXDir dir, uint8_t chan, uint8_t pathId);
     void LMS2SetPath(TRXDir dir, uint8_t chan, uint8_t path);
     void LMS2_PA_LNA_Enable(uint8_t chan, bool PAenabled, bool LNAenabled);
@@ -75,7 +75,6 @@ class LimeSDR_X3 : public LMS7002M_SDRDevice
     enum class ePathLMS2_Tx : uint8_t { NONE, TDD, FDD };
     enum class ePathLMS3_Rx : uint8_t { NONE, LNAH, LNAL, LNAW };
 
-    void ConfigureDirection(TRXDir dir, LMS7002M& chip, const SDRConfig& cfg, int ch, uint8_t socIndex);
     void SetLMSPath(const TRXDir dir, const ChannelConfig::Direction& trx, const int ch, const uint8_t socIndex);
 
     std::unique_ptr<CDCM_Dev> mClockGeneratorCDCM;

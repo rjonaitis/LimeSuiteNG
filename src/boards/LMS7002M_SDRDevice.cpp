@@ -4,6 +4,7 @@
 #include "limesuiteng/LMS7002M.h"
 #include "chips/LMS7002M/LMS7002MCSR_Data.h"
 #include "chips/LMS7002M/MCU_BD.h"
+#include "chips/LMS7002M/validation.h"
 #include "limesuiteng/Logger.h"
 #include "streaming/TRXLooper.h"
 #include "utilities/toString.h"
@@ -1065,6 +1066,115 @@ void LMS7002M_SDRDevice::SetGainInformationInDescriptor(RFSOCDescriptor& descrip
     descriptor.gainRange[TRXDir::Rx][eGainTypes::UNKNOWN] = Range<double>(-12, 61);
     descriptor.gainRange[TRXDir::Tx][eGainTypes::UNKNOWN] = descriptor.gainRange[TRXDir::Tx][eGainTypes::PAD];
 #endif
+}
+
+OpStatus LMS7002M_SDRDevice::LMS7002M_Configure(LMS7002M& chip, const SDRConfig& cfg)
+{
+    std::vector<std::string> errors;
+    bool isValidConfig = LMS7002M_Validate(cfg, errors);
+
+    if (!isValidConfig)
+    {
+        std::stringstream ss;
+        for (const auto& err : errors)
+            ss << err << std::endl;
+        return ReportError(OpStatus::Error, "config error: "s + ss.str());
+    }
+
+    try
+    {
+        LMS7002LOConfigure(chip, cfg);
+        for (int i = 0; i < 2; ++i)
+        {
+            LMS7002ChannelConfigure(chip, cfg.channel[i], i);
+            LMS7002TestSignalConfigure(chip, cfg.channel[i], i);
+        }
+
+        // enabled ADC/DAC is required for FPGA to work
+        chip.Modify_SPI_Reg_bits(PD_RX_AFE1, 0);
+        chip.Modify_SPI_Reg_bits(PD_TX_AFE1, 0);
+        chip.SetActiveChannel(LMS7002M::Channel::ChA);
+
+        // Workaround: Toggle LimeLights transmit port to flush residual value from data interface
+        uint16_t txMux = chip.Get_SPI_Reg_bits(LMS7002MCSR::TX_MUX);
+        chip.Modify_SPI_Reg_bits(LMS7002MCSR::TX_MUX, 2);
+        chip.Modify_SPI_Reg_bits(LMS7002MCSR::TX_MUX, txMux);
+    } //try
+    catch (std::logic_error& e)
+    {
+        return ReportError(OpStatus::Error, "LimeSDR config: "s + e.what());
+    } catch (std::runtime_error& e)
+    {
+        return ReportError(OpStatus::Error, "LimeSDR config: "s + e.what());
+    }
+    return OpStatus::Success;
+}
+
+OpStatus LMS7002M_SDRDevice::LMS7002M_SetSampleRate(double f_Hz, uint8_t rxDecimation, uint8_t txInterpolation)
+{
+    if (rxDecimation != 0 && txInterpolation / rxDecimation > 4)
+        return lime::ReportError(OpStatus::InvalidValue,
+            "TxInterpolation(%i)/RxDecimation(%i) should not be more than 4",
+            txInterpolation,
+            rxDecimation);
+
+    uint8_t oversample = rxDecimation;
+    const bool bypass = ((oversample == 1 || oversample == 0) && f_Hz > 61.44e6);
+    uint8_t hbd_ovr = 7; // decimation ratio is 2^(1+hbd_ovr), HBD_OVR_RXTSP=7 - bypass
+    uint8_t hbi_ovr = 7; // interpolation ratio is 2^(1+hbi_ovr), HBI_OVR_TXTSP=7 - bypass
+    double cgenFreq = f_Hz * 4; // AI AQ BI BQ
+    if (!bypass)
+    {
+        if (oversample == 0)
+        {
+            const int n = lime::LMS7002M::CGEN_MAX_FREQ / (cgenFreq);
+            oversample = (n >= 32) ? 32 : (n >= 16) ? 16 : (n >= 8) ? 8 : (n >= 4) ? 4 : 2;
+        }
+
+        hbd_ovr = 4;
+        if (oversample <= 16)
+        {
+            const int decTbl[] = { 0, 0, 0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3 };
+            hbd_ovr = decTbl[oversample];
+            rxDecimation = pow(2, hbd_ovr + 1);
+        }
+        cgenFreq *= 2 << hbd_ovr;
+        rxDecimation = 2 << hbd_ovr;
+
+        if (txInterpolation == 0)
+        {
+            //int txMultiplier = std::log2(lime::LMS7002M::CGEN_MAX_FREQ / cgenFreq);
+            txInterpolation = rxDecimation; // << txMultiplier;
+        }
+
+        if (txInterpolation >= rxDecimation)
+        {
+            hbi_ovr = hbd_ovr + std::log2(txInterpolation / rxDecimation);
+            txInterpolation = pow(2, hbi_ovr + 1);
+        }
+        else
+            return lime::ReportError(
+                OpStatus::NotSupported, "Rx decimation(2^%i) > Tx interpolation(2^%i) currently not supported", hbd_ovr, hbi_ovr);
+    }
+    lime::info("Sampling rate set(%.3f MHz): CGEN:%.3f MHz, Decim: 2^%i, Interp: 2^%i",
+        f_Hz / 1e6,
+        cgenFreq / 1e6,
+        1 + hbd_ovr,
+        1 + hbi_ovr);
+    auto& mLMSChip = mLMSChips.at(0);
+    mLMSChip->Modify_SPI_Reg_bits(LMS7002MCSR::EN_ADCCLKH_CLKGN, 0);
+    if (rxDecimation != 0)
+        mLMSChip->Modify_SPI_Reg_bits(LMS7002MCSR::CLKH_OV_CLKL_CGEN, 2 - std::log2(txInterpolation / rxDecimation));
+    else
+        mLMSChip->Modify_SPI_Reg_bits(LMS7002MCSR::CLKH_OV_CLKL_CGEN, 2);
+    mLMSChip->Modify_SPI_Reg_bits(LMS7002MCSR::MAC, 2);
+    mLMSChip->Modify_SPI_Reg_bits(LMS7002MCSR::HBD_OVR_RXTSP, hbd_ovr);
+    mLMSChip->Modify_SPI_Reg_bits(LMS7002MCSR::HBI_OVR_TXTSP, hbi_ovr);
+    mLMSChip->Modify_SPI_Reg_bits(LMS7002MCSR::MAC, 1);
+    mLMSChip->Modify_SPI_Reg_bits(LMS7002MCSR::HBD_OVR_RXTSP, hbd_ovr);
+    mLMSChip->Modify_SPI_Reg_bits(LMS7002MCSR::HBI_OVR_TXTSP, hbi_ovr);
+
+    return mLMSChip->SetInterfaceFrequency(cgenFreq, hbi_ovr, hbd_ovr);
 }
 
 OpStatus LMS7002M_SDRDevice::LMS7002LOConfigure(LMS7002M& chip, const SDRConfig& cfg)

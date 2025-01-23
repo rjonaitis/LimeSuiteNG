@@ -257,17 +257,22 @@ static OpStatus InitLMS1(LMS7002M& lms, bool skipTune = false)
 
 OpStatus LimeSDR_XTRX::Configure(const SDRConfig& cfg, uint8_t socIndex)
 {
-    std::vector<std::string> errors;
-    bool isValidConfig = LMS7002M_Validate(cfg, errors);
+    auto& chip = mLMSChips.at(0);
 
-    if (!isValidConfig)
+    mConfigInProgress = true;
+    if (!cfg.skipDefaults)
     {
-        std::stringstream ss;
-        for (const auto& err : errors)
-            ss << err << std::endl;
-        return ReportError(OpStatus::Error, "LimeSDR_XTRX config: "s + ss.str());
+        const bool skipTune = true;
+        InitLMS1(*chip, skipTune);
     }
 
+    OpStatus status = LMS7002M_Configure(*chip, cfg);
+    mConfigInProgress = false;
+
+    if (status != OpStatus::Success)
+        return status;
+
+    double sampleRate{ 0 };
     bool rxUsed = false;
     bool txUsed = false;
     for (int i = 0; i < 2; ++i)
@@ -276,63 +281,24 @@ OpStatus LimeSDR_XTRX::Configure(const SDRConfig& cfg, uint8_t socIndex)
         rxUsed |= ch.rx.enabled;
         txUsed |= ch.tx.enabled;
     }
+    if (rxUsed)
+        sampleRate = cfg.channel[0].rx.sampleRate;
+    else if (txUsed)
+        sampleRate = cfg.channel[0].tx.sampleRate;
 
-    try
+    if (sampleRate > 0)
+        LMS1_SetSampleRate(sampleRate, cfg.channel[0].rx.oversample, cfg.channel[0].tx.oversample);
+
+    for (int c = 0; c < 2; ++c)
     {
-        mConfigInProgress = true;
-        auto& chip = mLMSChips.at(socIndex);
-        if (!cfg.skipDefaults)
-        {
-            const bool skipTune = true;
-            InitLMS1(*chip, skipTune);
-        }
-
-        LMS7002LOConfigure(*chip, cfg);
-        for (int i = 0; i < 2; ++i)
-        {
-            LMS7002ChannelConfigure(*chip, cfg.channel[i], i);
-            LMS7002TestSignalConfigure(*chip, cfg.channel[i], i);
-        }
-
-        // enabled ADC/DAC is required for FPGA to work
-        chip->Modify_SPI_Reg_bits(PD_RX_AFE1, 0);
-        chip->Modify_SPI_Reg_bits(PD_TX_AFE1, 0);
-        chip->SetActiveChannel(LMS7002M::Channel::ChA);
-
-        double sampleRate{ 0 };
-        if (rxUsed)
-            sampleRate = cfg.channel[0].rx.sampleRate;
-        else if (txUsed)
-            sampleRate = cfg.channel[0].tx.sampleRate;
-
-        if (sampleRate > 0)
-            LMS1_SetSampleRate(sampleRate, cfg.channel[0].rx.oversample, cfg.channel[0].tx.oversample);
-
-        for (int i = 0; i < 2; ++i)
-        {
-            const ChannelConfig& ch = cfg.channel[i];
-            LMS1SetPath(false, i, ch.rx.path);
-            LMS1SetPath(true, i, ch.tx.path);
-            LMS7002ChannelCalibration(*chip, ch, i);
-        }
-        chip->SetActiveChannel(LMS7002M::Channel::ChA);
-
-        // Workaround: Toggle LimeLights transmit port to flush residual value from data interface
-        uint16_t txMux = chip->Get_SPI_Reg_bits(LMS7002MCSR::TX_MUX);
-        chip->Modify_SPI_Reg_bits(LMS7002MCSR::TX_MUX, 2);
-        chip->Modify_SPI_Reg_bits(LMS7002MCSR::TX_MUX, txMux);
-
-        mConfigInProgress = false;
-        if (sampleRate > 0)
-            return LMS1_UpdateFPGAInterface(this);
-    } //try
-    catch (std::logic_error& e)
-    {
-        return ReportError(OpStatus::Error, "LimeSDR_XTRX config: "s + e.what());
-    } catch (std::runtime_error& e)
-    {
-        return ReportError(OpStatus::Error, "LimeSDR_XTRX config: "s + e.what());
+        LMSSetPath(TRXDir::Tx, c, cfg.channel[c].tx.path);
+        LMSSetPath(TRXDir::Rx, c, cfg.channel[c].rx.path);
+        LMS7002ChannelCalibration(*chip, cfg.channel[c], c);
     }
+
+    if (sampleRate > 0)
+        return LMS1_UpdateFPGAInterface(this);
+
     return OpStatus::Success;
 }
 
@@ -410,84 +376,26 @@ OpStatus LimeSDR_XTRX::LMS1_SetSampleRate(double f_Hz, uint8_t rxDecimation, uin
         txInterpolation = 1;
     }
 
-    if (rxDecimation != 0 && txInterpolation / rxDecimation > 4)
-        throw std::logic_error(
-            strFormat("TxInterpolation(%i)/RxDecimation(%i) should not be more than 4", txInterpolation, rxDecimation));
-    uint8_t oversample = rxDecimation;
-    const bool bypass = ((oversample == 1 || oversample == 0) && f_Hz > 61.44e6);
-    uint8_t hbd_ovr = 7; // decimation ratio is 2^(1+hbd_ovr), HBD_OVR_RXTSP=7 - bypass
-    uint8_t hbi_ovr = 7; // interpolation ratio is 2^(1+hbi_ovr), HBI_OVR_TXTSP=7 - bypass
-    double cgenFreq = f_Hz * 4; // AI AQ BI BQ
-    if (!bypass)
-    {
-        if (oversample == 0)
-        {
-            const int n = lime::LMS7002M::CGEN_MAX_FREQ / (cgenFreq);
-            oversample = (n >= 32) ? 32 : (n >= 16) ? 16 : (n >= 8) ? 8 : (n >= 4) ? 4 : 2;
-        }
-
-        hbd_ovr = 4;
-        if (oversample <= 16)
-        {
-            const int decTbl[] = { 0, 0, 0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3 };
-            hbd_ovr = decTbl[oversample];
-            rxDecimation = pow(2, hbd_ovr + 1);
-        }
-        cgenFreq *= 2 << hbd_ovr;
-        rxDecimation = 2 << hbd_ovr;
-
-        if (txInterpolation == 0)
-        {
-            //int txMultiplier = std::log2(lime::LMS7002M::CGEN_MAX_FREQ / cgenFreq);
-            txInterpolation = rxDecimation; // << txMultiplier;
-        }
-
-        if (txInterpolation >= rxDecimation)
-        {
-            hbi_ovr = hbd_ovr + std::log2(txInterpolation / rxDecimation);
-            txInterpolation = pow(2, hbi_ovr + 1);
-        }
-        else
-            return lime::ReportError(
-                OpStatus::NotSupported, "Rx decimation(2^%i) > Tx interpolation(2^%i) currently not supported", hbd_ovr, hbi_ovr);
-    }
-    lime::info("Sampling rate set(%.3f MHz): CGEN:%.3f MHz, Decim: 2^%i, Interp: 2^%i",
-        f_Hz / 1e6,
-        cgenFreq / 1e6,
-        1 + hbd_ovr,
-        1 + hbi_ovr);
-    auto& mLMSChip = mLMSChips.at(0);
-    mLMSChip->Modify_SPI_Reg_bits(LMS7002MCSR::EN_ADCCLKH_CLKGN, 0);
-    if (rxDecimation != 0)
-        mLMSChip->Modify_SPI_Reg_bits(LMS7002MCSR::CLKH_OV_CLKL_CGEN, 2 - std::log2(txInterpolation / rxDecimation));
-    else
-        mLMSChip->Modify_SPI_Reg_bits(LMS7002MCSR::CLKH_OV_CLKL_CGEN, 2);
-    mLMSChip->Modify_SPI_Reg_bits(LMS7002MCSR::MAC, 2);
-    mLMSChip->Modify_SPI_Reg_bits(LMS7002MCSR::HBD_OVR_RXTSP, hbd_ovr);
-    mLMSChip->Modify_SPI_Reg_bits(LMS7002MCSR::HBI_OVR_TXTSP, hbi_ovr);
-    mLMSChip->Modify_SPI_Reg_bits(LMS7002MCSR::MAC, 1);
-    mLMSChip->Modify_SPI_Reg_bits(LMS7002MCSR::HBD_OVR_RXTSP, hbd_ovr);
-    mLMSChip->Modify_SPI_Reg_bits(LMS7002MCSR::HBI_OVR_TXTSP, hbi_ovr);
-
     if (f_Hz > 61.44e6)
     {
+        auto& lms = mLMSChips.at(0);
         // LimeLight & Pad
-        mLMSChip->Modify_SPI_Reg_bits(LMS7002MCSR::DIQ2_DS, 1);
-        mLMSChip->Modify_SPI_Reg_bits(LMS7002MCSR::LML1_SISODDR, 1);
-        mLMSChip->Modify_SPI_Reg_bits(LMS7002MCSR::LML2_SISODDR, 1);
+        lms->Modify_SPI_Reg_bits(LMS7002MCSR::DIQ2_DS, 1);
+        lms->Modify_SPI_Reg_bits(LMS7002MCSR::LML1_SISODDR, 1);
+        lms->Modify_SPI_Reg_bits(LMS7002MCSR::LML2_SISODDR, 1);
         // CDS
-        mLMSChip->Modify_SPI_Reg_bits(LMS7002MCSR::CDSN_RXALML, 0);
-        mLMSChip->Modify_SPI_Reg_bits(LMS7002MCSR::CDS_RXALML, 1);
+        lms->Modify_SPI_Reg_bits(LMS7002MCSR::CDSN_RXALML, 0);
+        lms->Modify_SPI_Reg_bits(LMS7002MCSR::CDS_RXALML, 1);
         // LDO
-        mLMSChip->Modify_SPI_Reg_bits(LMS7002MCSR::PD_LDO_DIGIp1, 0);
-        mLMSChip->Modify_SPI_Reg_bits(LMS7002MCSR::PD_LDO_DIGIp2, 0);
-        mLMSChip->Modify_SPI_Reg_bits(LMS7002MCSR::RDIV_DIGIp2, 140);
+        lms->Modify_SPI_Reg_bits(LMS7002MCSR::PD_LDO_DIGIp1, 0);
+        lms->Modify_SPI_Reg_bits(LMS7002MCSR::PD_LDO_DIGIp2, 0);
+        lms->Modify_SPI_Reg_bits(LMS7002MCSR::RDIV_DIGIp2, 140);
     }
 
-    return mLMSChip->SetInterfaceFrequency(cgenFreq, hbi_ovr, hbd_ovr);
+    return LMS7002M_SDRDevice::LMS7002M_SetSampleRate(f_Hz, rxDecimation, txInterpolation);
 }
 
-void LimeSDR_XTRX::LMS1SetPath(bool tx, uint8_t chan, uint8_t pathId)
+void LimeSDR_XTRX::LMSSetPath(TRXDir dir, uint8_t chan, uint8_t pathId)
 {
     uint16_t sw_addr = 0x000A;
     uint16_t sw_val = mFPGA->ReadRegister(sw_addr);
@@ -498,7 +406,7 @@ void LimeSDR_XTRX::LMS1SetPath(bool tx, uint8_t chan, uint8_t pathId)
     const LMS7002M::Channel old_channel = lms->GetActiveChannel();
     lms->SetActiveChannel(chan == 0 ? LMS7002M::Channel::ChA : LMS7002M::Channel::ChB);
 
-    if (tx)
+    if (dir == TRXDir::Tx)
     {
         switch (ePathLMS1_Tx(pathId))
         {
@@ -1074,7 +982,7 @@ OpStatus LimeSDR_XTRX::SetAntenna(uint8_t moduleIndex, TRXDir trx, uint8_t chann
     OpStatus status = LMS7002M_SDRDevice::SetAntenna(moduleIndex, trx, channel, path);
     if (status != OpStatus::Success)
         return status;
-    LMS1SetPath(trx == TRXDir::Tx, channel, path);
+    LMSSetPath(trx, channel, path);
     return OpStatus::Success;
 }
 

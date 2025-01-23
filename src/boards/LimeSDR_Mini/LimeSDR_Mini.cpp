@@ -224,22 +224,24 @@ LimeSDR_Mini::~LimeSDR_Mini()
 
 OpStatus LimeSDR_Mini::Configure(const SDRConfig& cfg, uint8_t moduleIndex = 0)
 {
-    OpStatus status = OpStatus::Success;
-    std::vector<std::string> errors;
-    bool isValidConfig = LMS7002M_Validate(cfg, errors, 1);
+    auto& chip = mLMSChips.at(0);
 
-    if (!isValidConfig)
+    mConfigInProgress = true;
+    if (!cfg.skipDefaults)
     {
-        std::stringstream ss;
-
-        for (const auto& err : errors)
-        {
-            ss << err << std::endl;
-        }
-
-        return lime::ReportError(OpStatus::Error, "LimeSDR-Mini: "s + ss.str());
+        Init();
     }
+    // enabled ADC/DAC is required for FPGA to work
+    chip->Modify_SPI_Reg_bits(PD_RX_AFE1, 0);
+    chip->Modify_SPI_Reg_bits(PD_TX_AFE1, 0);
 
+    OpStatus status = LMS7002M_Configure(*chip, cfg);
+    mConfigInProgress = false;
+
+    if (status != OpStatus::Success)
+        return status;
+
+    double sampleRate{ 0 };
     bool rxUsed = false;
     bool txUsed = false;
     for (int i = 0; i < 2; ++i)
@@ -248,77 +250,30 @@ OpStatus LimeSDR_Mini::Configure(const SDRConfig& cfg, uint8_t moduleIndex = 0)
         rxUsed |= ch.rx.enabled;
         txUsed |= ch.tx.enabled;
     }
+    if (rxUsed)
+        sampleRate = cfg.channel[0].rx.sampleRate;
+    else if (txUsed)
+        sampleRate = cfg.channel[0].tx.sampleRate;
 
-    // config validation complete, now do the actual configuration
-    try
+    if (sampleRate > 0)
     {
-        mConfigInProgress = true;
-        auto& chip = mLMSChips.at(0);
-        if (!cfg.skipDefaults)
-        {
-            status = Init();
-            if (status != OpStatus::Success)
-                return status;
-        }
-
-        status = LMS7002LOConfigure(*chip, cfg);
+        status = SetSampleRate(0, TRXDir::Rx, 0, sampleRate, cfg.channel[0].rx.oversample);
         if (status != OpStatus::Success)
-            return lime::ReportError(OpStatus::Error, "LimeSDR_Mini: LO configuration failed."s);
-        for (int i = 0; i < 2; ++i)
-        {
-            status = LMS7002ChannelConfigure(*chip, cfg.channel[i], i);
-            if (status != OpStatus::Success)
-                return lime::ReportError(OpStatus::Error, "LimeSDR_Mini: channel%i configuration failed.", i);
-            LMS7002TestSignalConfigure(*chip, cfg.channel[i], i);
+            return status;
+    }
 
-            if (i == 0) // only channel A is connected to RF ports
-            {
-                SetRFSwitch(TRXDir::Rx, cfg.channel[0].rx.path);
-                SetRFSwitch(TRXDir::Tx, cfg.channel[0].tx.path);
-            }
-        }
-
-        // enabled ADC/DAC is required for FPGA to work
-        chip->Modify_SPI_Reg_bits(PD_RX_AFE1, 0);
-        chip->Modify_SPI_Reg_bits(PD_TX_AFE1, 0);
-        chip->SetActiveChannel(LMS7002M::Channel::ChA);
-
-        double sampleRate{ 0 };
-        if (rxUsed)
-            sampleRate = cfg.channel[0].rx.sampleRate;
-        else if (txUsed)
-            sampleRate = cfg.channel[0].tx.sampleRate;
-
-        if (sampleRate > 0)
-        {
-            status = SetSampleRate(0, TRXDir::Rx, 0, sampleRate, cfg.channel[0].rx.oversample);
-            if (status != OpStatus::Success)
-                return lime::ReportError(OpStatus::Error, "LimeSDR_Mini: failed to set sampling rate."s);
-        }
-
-        for (int i = 0; i < 2; ++i)
-        {
-            const ChannelConfig& ch = cfg.channel[i];
-            LMS7002ChannelCalibration(*chip, ch, i);
-            // TODO: should report calibration failure, but configuration can
-            // still work after failed calibration.
-        }
-        chip->SetActiveChannel(LMS7002M::Channel::ChA);
-
-        mConfigInProgress = false;
-        if (sampleRate > 0)
-        {
-            status = UpdateFPGAInterface(this);
-            if (status != OpStatus::Success)
-                return lime::ReportError(OpStatus::Error, "LimeSDR_Mini: failed to update FPGA interface frequency."s);
-        }
-    } //try
-    catch (std::logic_error& e)
+    for (int c = 0; c < 2; ++c)
     {
-        return ReportError(OpStatus::Error, "LimeSDR_Mini config: "s + e.what());
-    } catch (std::runtime_error& e)
+        SetAntenna(0, TRXDir::Tx, c, cfg.channel[c].tx.path);
+        SetAntenna(0, TRXDir::Rx, c, cfg.channel[c].rx.path);
+        LMS7002ChannelCalibration(*chip, cfg.channel[c], c);
+    }
+
+    if (sampleRate > 0)
     {
-        return ReportError(OpStatus::Error, "LimeSDR_Mini config: "s + e.what());
+        status = UpdateFPGAInterface(this);
+        if (status != OpStatus::Success)
+            return lime::ReportError(OpStatus::Error, "Failed to update FPGA interface frequency."s);
     }
     return OpStatus::Success;
 }
@@ -341,10 +296,6 @@ OpStatus LimeSDR_Mini::Init()
     lms->SetActiveChannel(LMS7002M::Channel::ChA);
     lms->SetTxLPF(20e6);
     lms->SetRxLPF(20e6);
-    // SetActiveChannel(Channel::ChB);
-    // SetTxLPF(0);
-    // SetRxLPF(0);
-    // SetActiveChannel(Channel::ChA);
 
     return OpStatus::Success;
 }
@@ -412,66 +363,14 @@ double LimeSDR_Mini::GetTemperature(uint8_t moduleIndex)
 
 OpStatus LimeSDR_Mini::SetSampleRate(uint8_t moduleIndex, TRXDir trx, uint8_t channel, double sampleRate, uint8_t oversample)
 {
-    const bool bypass = (oversample == 1);
-    uint8_t decimation = 7; // HBD_OVR_RXTSP=7 - bypass
-    uint8_t interpolation = 7; // HBI_OVR_TXTSP=7 - bypass
-    double cgenFreq = sampleRate * 4; // AI AQ BI BQ
-    // TODO:
-    // for (uint8_t i = 0; i < GetNumChannels(false) ;i++)
-    // {
-    //     if (rx_channels[i].cF_offset_nco != 0.0 || tx_channels[i].cF_offset_nco != 0.0)
-    //     {
-    //         bypass = false;
-    //         break;
-    //     }
-    // }
-
-    if (bypass)
-    {
-        lime::info("Sampling rate set(%.3f MHz): CGEN:%.3f MHz, Decim: bypass, Interp: bypass", sampleRate / 1e6, cgenFreq / 1e6);
-    }
-    else
-    {
-        if (oversample == 0)
-        {
-            const int n = lime::LMS7002M::CGEN_MAX_FREQ / (cgenFreq);
-            oversample = (n >= 32) ? 32 : (n >= 16) ? 16 : (n >= 8) ? 8 : (n >= 4) ? 4 : 2;
-        }
-
-        decimation = 4;
-        if (oversample <= 16)
-        {
-            constexpr std::array<int, 17> decimationTable{ 0, 0, 0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3 };
-            decimation = decimationTable.at(oversample);
-        }
-        interpolation = decimation;
-        cgenFreq *= 2 << decimation;
-
-        lime::info("Sampling rate set(%.3f MHz): CGEN:%.3f MHz, Decim: 2^%i, Interp: 2^%i",
-            sampleRate / 1e6,
-            cgenFreq / 1e6,
-            decimation + 1,
-            interpolation + 1); // dec/inter ratio is 2^(value+1)
-    }
-
-    mLMSChips.at(moduleIndex)->Modify_SPI_Reg_bits(LMS7002MCSR_Data::MAC, 1);
     mLMSChips.at(moduleIndex)->Modify_SPI_Reg_bits(LMS7002MCSR_Data::LML1_SISODDR, 1);
     mLMSChips.at(moduleIndex)->Modify_SPI_Reg_bits(LMS7002MCSR_Data::LML2_SISODDR, 1);
+    const bool bypass = ((oversample == 1 || oversample == 0) && sampleRate > 61.44e6);
     mLMSChips.at(moduleIndex)->Modify_SPI_Reg_bits(LMS7002MCSR_Data::CDSN_RXALML, !bypass);
     mLMSChips.at(moduleIndex)->Modify_SPI_Reg_bits(LMS7002MCSR_Data::EN_ADCCLKH_CLKGN, 0);
     mLMSChips.at(moduleIndex)->Modify_SPI_Reg_bits(LMS7002MCSR_Data::CLKH_OV_CLKL_CGEN, 2);
-    mLMSChips.at(moduleIndex)->Modify_SPI_Reg_bits(LMS7002MCSR_Data::MAC, 2);
-    mLMSChips.at(moduleIndex)->Modify_SPI_Reg_bits(LMS7002MCSR_Data::HBD_OVR_RXTSP, decimation);
-    mLMSChips.at(moduleIndex)->Modify_SPI_Reg_bits(LMS7002MCSR_Data::HBI_OVR_TXTSP, interpolation);
-    mLMSChips.at(moduleIndex)->Modify_SPI_Reg_bits(LMS7002MCSR_Data::MAC, 1);
-    if (bypass)
-    {
-        return mLMSChips.at(moduleIndex)->SetInterfaceFrequency(sampleRate * 4, 7, 7);
-    }
-    else
-    {
-        return mLMSChips.at(moduleIndex)->SetInterfaceFrequency(cgenFreq, interpolation, decimation);
-    }
+
+    return LMS7002M_SDRDevice::LMS7002M_SetSampleRate(sampleRate, oversample, oversample);
 }
 
 OpStatus LimeSDR_Mini::GPIODirRead(uint8_t* buffer, const size_t bufLength)
