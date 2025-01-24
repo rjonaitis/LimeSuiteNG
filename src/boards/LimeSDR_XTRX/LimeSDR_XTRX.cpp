@@ -399,12 +399,9 @@ void LimeSDR_XTRX::LMSSetPath(TRXDir dir, uint8_t chan, uint8_t pathId)
 {
     uint16_t sw_addr = 0x000A;
     uint16_t sw_val = mFPGA->ReadRegister(sw_addr);
-    auto& lms = mLMSChips.at(0);
 
-    // Set active channel for configuring TRF and RFE registers to match the
-    // requested channel index.
-    const LMS7002M::Channel old_channel = lms->GetActiveChannel();
-    lms->SetActiveChannel(chan == 0 ? LMS7002M::Channel::ChA : LMS7002M::Channel::ChB);
+    auto& lms = mLMSChips.at(0);
+    LMS7002M::ChannelScope scope(lms.get(), chan);
 
     if (dir == TRXDir::Tx)
     {
@@ -446,8 +443,6 @@ void LimeSDR_XTRX::LMSSetPath(TRXDir dir, uint8_t chan, uint8_t pathId)
     // RF switch controls are toggled for both channels, use channel 0 as the deciding source.
     if (chan == 0)
         mFPGA->WriteRegister(sw_addr, sw_val);
-
-    lms->SetActiveChannel(old_channel);
 }
 
 OpStatus LimeSDR_XTRX::CustomParameterWrite(const std::vector<CustomParameterIO>& parameters)

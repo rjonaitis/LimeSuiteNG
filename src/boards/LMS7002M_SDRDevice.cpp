@@ -1167,6 +1167,8 @@ OpStatus LMS7002M_SDRDevice::LMS7002M_SetSampleRate(double f_Hz, uint8_t rxDecim
         mLMSChip->Modify_SPI_Reg_bits(LMS7002MCSR::CLKH_OV_CLKL_CGEN, 2 - std::log2(txInterpolation / rxDecimation));
     else
         mLMSChip->Modify_SPI_Reg_bits(LMS7002MCSR::CLKH_OV_CLKL_CGEN, 2);
+
+    LMS7002M::ChannelScope scope(mLMSChip.get());
     mLMSChip->Modify_SPI_Reg_bits(LMS7002MCSR::MAC, 2);
     mLMSChip->Modify_SPI_Reg_bits(LMS7002MCSR::HBD_OVR_RXTSP, hbd_ovr);
     mLMSChip->Modify_SPI_Reg_bits(LMS7002MCSR::HBI_OVR_TXTSP, hbi_ovr);
@@ -1216,9 +1218,10 @@ OpStatus LMS7002M_SDRDevice::LMS7002LOConfigure(LMS7002M& chip, const SDRConfig&
 
 OpStatus LMS7002M_SDRDevice::LMS7002ChannelConfigure(LMS7002M& chip, const ChannelConfig& config, uint8_t channelIndex)
 {
+    LMS7002M::ChannelScope scope(&chip, channelIndex);
+
     OpStatus status;
     const ChannelConfig& ch = config;
-    chip.SetActiveChannel((channelIndex & 1) ? LMS7002M::Channel::ChB : LMS7002M::Channel::ChA);
 
     chip.EnableChannel(TRXDir::Rx, channelIndex, ch.rx.enabled);
     chip.SetPathRFE(static_cast<LMS7002M::PathRFE>(ch.rx.path));
@@ -1257,9 +1260,9 @@ OpStatus LMS7002M_SDRDevice::LMS7002ChannelConfigure(LMS7002M& chip, const Chann
 
 OpStatus LMS7002M_SDRDevice::LMS7002ChannelCalibration(LMS7002M& chip, const ChannelConfig& config, uint8_t channelIndex)
 {
+    LMS7002M::ChannelScope scope(&chip, channelIndex);
     int i = channelIndex;
     auto enumChannel = i == 0 ? LMS7002M::Channel::ChA : LMS7002M::Channel::ChB;
-    chip.SetActiveChannel(enumChannel);
     const ChannelConfig& ch = config;
 
     // TODO: Don't configure GFIR when external ADC/DAC is used
@@ -1305,6 +1308,7 @@ OpStatus LMS7002M_SDRDevice::LMS7002ChannelCalibration(LMS7002M& chip, const Cha
 
 OpStatus LMS7002M_SDRDevice::LMS7002TestSignalConfigure(LMS7002M& chip, const ChannelConfig& config, uint8_t channelIndex)
 {
+    LMS7002M::ChannelScope scope(&chip, channelIndex);
     const ChannelConfig& ch = config;
     chip.Modify_SPI_Reg_bits(INSEL_RXTSP, ch.rx.testSignal.enabled ? 1 : 0);
     if (ch.rx.testSignal.enabled)

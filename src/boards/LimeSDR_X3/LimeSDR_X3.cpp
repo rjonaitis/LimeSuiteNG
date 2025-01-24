@@ -72,7 +72,7 @@ static const std::vector<std::pair<uint16_t, uint16_t>> lms1defaultsOverride = {
     { 0x0114, 0x01F0 },
     { 0x0115, 0x000D },
     { 0x0118, 0x418C },
-    { 0x0119, 0x5292 },
+    { 0x0119, 0x528C },
     { 0x011A, 0x3001 },
     { 0x011C, 0x8941 },
     { 0x011D, 0x0000 },
@@ -122,7 +122,7 @@ static const std::vector<std::pair<uint16_t, uint16_t>> lms2and3defaultsOverride
     { 0x0114, 0x01F0 },
     { 0x0115, 0x000D },
     { 0x0118, 0x418C },
-    { 0x0119, 0xD292 },
+    { 0x0119, 0xD28C },
     { 0x011A, 0x3001 },
     { 0x011C, 0x8941 },
     { 0x011D, 0x0000 },
@@ -293,15 +293,11 @@ OpStatus LimeSDR_X3::InitLMS1(bool skipTune)
 
 static void EnableChannelLMS2(LMS7002M& chip, TRXDir dir, const uint8_t channel, const bool enable)
 {
-    //ChannelScope scope(this, channel);
-
-    auto macBck = chip.GetActiveChannel();
-    const LMS7002M::Channel ch = channel > 0 ? LMS7002M::Channel::ChB : LMS7002M::Channel::ChA;
-    chip.SetActiveChannel(ch);
+    LMS7002M::ChannelScope scope(&chip, channel);
 
     const bool isTx = dir == TRXDir::Tx;
     //--- LML ---
-    if (ch == LMS7002M::Channel::ChA)
+    if (channel == 0)
     {
         if (isTx)
             chip.Modify_SPI_Reg_bits(LMS7002MCSR::TXEN_A, enable ? 1 : 0);
@@ -379,7 +375,7 @@ static void EnableChannelLMS2(LMS7002M& chip, TRXDir dir, const uint8_t channel,
         chip.Modify_SPI_Reg_bits(LMS7002MCSR::EN_DIR_SXRSXT, 1);
         //chip.Modify_SPI_Reg_bits(LMS7002MCSR::EN_G, (disabledChannels&3) == 3?0:1);
         chip.Modify_SPI_Reg_bits(LMS7002MCSR::EN_G, 1);
-        if (ch == LMS7002M::Channel::ChB) //enable LO to channel B
+        if (channel == 1) //enable LO to channel B
         {
             chip.SetActiveChannel(LMS7002M::Channel::ChA);
             chip.Modify_SPI_Reg_bits(LMS7002MCSR::EN_NEXTTX_TRF, enable ? 1 : 0);
@@ -391,13 +387,12 @@ static void EnableChannelLMS2(LMS7002M& chip, TRXDir dir, const uint8_t channel,
         chip.Modify_SPI_Reg_bits(LMS7002MCSR::EN_DIR_SXRSXT, 1);
         //chip.Modify_SPI_Reg_bits(LMS7002MCSR::EN_G, (disabledChannels&0xC)==0xC?0:1);
         chip.Modify_SPI_Reg_bits(LMS7002MCSR::EN_G, 1);
-        if (ch == LMS7002M::Channel::ChB) //enable LO to channel B
+        if (channel == 1) //enable LO to channel B
         {
             chip.SetActiveChannel(LMS7002M::Channel::ChA);
             chip.Modify_SPI_Reg_bits(LMS7002MCSR::EN_NEXTRX_RFE, enable ? 1 : 0);
         }
     }
-    chip.SetActiveChannel(macBck);
 }
 
 // Setup default register values specifically for onboard LMS2 chip
@@ -592,6 +587,8 @@ OpStatus LimeSDR_X3::ConfigureLMS2(const SDRConfig& cfg)
 
     for (int c = 0; c < 2; ++c)
     {
+        auto enumChannel = c == 0 ? LMS7002M::Channel::ChA : LMS7002M::Channel::ChB;
+        chip->SetActiveChannel(enumChannel);
         SetLMSPath(TRXDir::Tx, cfg.channel[c].tx, c, socIndex);
         SetLMSPath(TRXDir::Rx, cfg.channel[c].rx, c, socIndex);
         LMS7002ChannelCalibration(*chip, cfg.channel[c], c);
@@ -861,7 +858,9 @@ void LimeSDR_X3::LMS1SetPath(TRXDir dir, uint8_t chan, uint8_t pathId)
     const bool tx = dir == TRXDir::Tx;
     uint16_t sw_addr = 0x00D1;
     uint16_t sw_val = mFPGA->ReadRegister(sw_addr);
+
     auto& lms = mLMSChips.at(0);
+    LMS7002M::ChannelScope scope(lms.get(), chan);
 
     if (tx)
     {
