@@ -104,43 +104,9 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
         add_compile_options($<$<NOT:$<CONFIG:Debug>>:-fno-caller-saves>)
     endif()
 
-    #default SIMD configuration uses native build flags
-    #when packaging and x86, use sse3 so the binaries work across multiple x86 variants
-    if(NOT DEFAULT_SIMD_FLAGS)
-        set(DEFAULT_SIMD_FLAGS "native")
+    if(CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL "x86_64") # limit CPU extensions usage to generate portable binaries
+        add_compile_options(-march=x86-64)
     endif()
-    if("${CMAKE_INSTALL_PREFIX}" STREQUAL "/usr" AND X86)
-        set(DEFAULT_SIMD_FLAGS "SSE3")
-    endif()
-    if(RV64)
-        set(DEFAULT_SIMD_FLAGS "rv64")
-    endif()
-
-    set(ENABLE_SIMD_FLAGS
-        "${DEFAULT_SIMD_FLAGS}"
-        CACHE STRING "Set compiler SIMD flags")
-    set_property(CACHE ENABLE_SIMD_FLAGS PROPERTY STRINGS none native SSE3 SSE4.2 AVX AVX2)
-
-    if(${ENABLE_SIMD_FLAGS} MATCHES "native")
-        add_compile_options(-march=native)
-        if(X86)
-            add_compile_options(-mfpmath=sse)
-        endif()
-        message(STATUS "Enabling native optimizations")
-    elseif(${ENABLE_SIMD_FLAGS} MATCHES "AVX2")
-        add_compile_options(-mmmx -msse -msse2 -msse3 -mssse3 -msse4.1 -msse4.2 -mpopcnt -mavx -mfma -mavx2 -mfpmath=sse)
-        message(STATUS "Enabling AVX2 instructions")
-    elseif(${ENABLE_SIMD_FLAGS} MATCHES "AVX")
-        add_compile_options(-mmmx -msse -msse2 -msse3 -mssse3 -msse4.1 -msse4.2 -mpopcnt -mavx -mfpmath=sse)
-        message(STATUS "Enabling AVX instructions")
-    elseif(${ENABLE_SIMD_FLAGS} MATCHES "SSE4.2")
-        add_compile_options(-mmmx -msse -msse2 -msse3 -mssse3 -msse4.1 -msse4.2 -mpopcnt -mfpmath=sse)
-        message(STATUS "Enabling SSE4.2 instructions")
-    elseif(${ENABLE_SIMD_FLAGS} MATCHES "SSE3")
-        add_compile_options(-mmmx -msse -msse2 -msse3 -mfpmath=sse)
-        message(STATUS "Enabling SSE3 instructions")
-    endif()
-
 endif()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
