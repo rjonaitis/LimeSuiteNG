@@ -31,7 +31,7 @@ Recommends:
 Description: metapackage for installing all LimeSuiteNG components.
  This package installs all LimeSuiteNG available components
 
-Package: liblimesuiteng
+Package: limesuiteng-liblimesuiteng
 Section: libs
 Architecture: any
 Multi-Arch: same
@@ -44,7 +44,7 @@ Depends:
 Description: runtime shared libraries.
  Core of the LimeSuiteNG runtime
 
-Package: liblimesuiteng-legacyapi
+Package: limesuiteng-liblimesuiteng-legacyapi
 Section: libs
 Architecture: any
 Multi-Arch: same
@@ -54,7 +54,7 @@ Depends:
 Description: Legacy LimeSuite API wrapper over LimeSuiteNG
  Provides legacy LimeSuite C API wrapper for LimeSuiteNG library
 
-Package: liblimesuiteng-dev
+Package: limesuiteng-liblimesuiteng-dev
 Section: libdevel
 Architecture: any
 Depends:
@@ -85,7 +85,7 @@ Architecture: all
 Depends: udev
 Description: UDEV rules for LimeSuiteNG devices.
 
-Package: limepcie
+Package: limesuiteng-limepcie
 Section: comm
 Architecture: any
 Multi-Arch: same
