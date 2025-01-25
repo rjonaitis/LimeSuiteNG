@@ -1,1 +1,0 @@
-sed -i "s/UNRELEASED/$1/g" debian/changelog

@@ -27,11 +27,20 @@ jobs:
         with:
           path: 'source'
 
+      - name: Set Debian variables
+        run: |
+          cd source
+          source /etc/os-release
+          DEBFULLNAME="Lime Microsystems"
+          DEBEMAIL="apps@limemicro.com"
+          echo "ubuntu_codename=$UBUNTU_CODENAME" >> $GITHUB_ENV
+          dch -r "" --distribution $UBUNTU_CODENAME
+
       - name: Install GNURadio
         if: ${{ matrix.os != 'ubuntu-20.04'}} # 20.04 has GNURadio 3.8.1, it's python bindings are not using pybind11, so not compatible
         run: |
           sudo apt-get update
-          sudo apt-get install -qq gnuradio-dev
+          sudo apt-get install -qq gnuradio-dev devscripts
 
       - name: Install dependencies
         run: |
@@ -45,23 +54,18 @@ jobs:
         run: |
           sudo apt-get install dh-dkms
 
-      - name: Set Debian variables
-        run: |
-          source /etc/os-release
-          ./set_debian_changelog_codename.sh $UBUNTU_CODENAME
-
       - name: Build
         run: |
           cd source
           dpkg-buildpackage --no-sign
 
-      # - name: Archive packaging artifacts
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: debian-packages
-      #     retention-days: 3
-      #     path: |
-      #       ${{github.workspace}}/*.tar.xz
-      #       ${{github.workspace}}/*.dsc
-      #       ${{github.workspace}}/*.deb
-      #       ${{github.workspace}}/*.ddeb
+      - name: Archive packaging artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ubuntu_codename }}
+          retention-days: 2
+          path: |
+            ${{github.workspace}}/*.tar.xz
+            ${{github.workspace}}/*.dsc
+            ${{github.workspace}}/*.deb
+            ${{github.workspace}}/*.ddeb
