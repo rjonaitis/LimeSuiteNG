@@ -45,6 +45,11 @@ jobs:
         run: |
           sudo apt-get install dh-dkms
 
+      - name: Set Debian variables
+        run: |
+          source /etc/os-release
+          ./set_debian_changelog_codename.sh $UBUNTU_CODENAME
+
       - name: Build
         run: |
           cd source
