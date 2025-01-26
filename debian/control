@@ -50,7 +50,7 @@ Architecture: any
 Multi-Arch: same
 Depends:
     ${shlibs:Depends},
-    liblimesuiteng
+    ${misc:Depends},
 Description: Legacy LimeSuite API wrapper over LimeSuiteNG
  Provides legacy LimeSuite C API wrapper for LimeSuiteNG library
 
@@ -67,7 +67,6 @@ Architecture: any
 Depends:
     ${shlibs:Depends},
     ${misc:Depends},
-    liblimesuiteng
 Description: command line interface tools.
 
 Package: limesuiteng-gui
@@ -75,8 +74,7 @@ Section: comm
 Architecture: any
 Depends:
     ${shlibs:Depends},
-    libwxgtk3.0-dev | libwxgtk3.0-gtk3-dev | libwxgtk3.2-dev,
-    liblimesuiteng
+    ${misc:Depends},
 Description: Graphical User Interface for LimeSDR based devices.
 
 Package: limesuiteng-udev
@@ -100,7 +98,6 @@ Multi-Arch: same
 Depends:
     ${shlibs:Depends},
     ${misc:Depends},
-    gnuradio
 Enhances:
     gnuradio
 Description: GNU Radio plugin of LimeSDR devices
