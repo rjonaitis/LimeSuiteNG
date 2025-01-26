@@ -8,7 +8,8 @@ changelog_list=`ls -1 ./*changelog`
 
 for i in ${changelog_list}
 do
-	dch --changelog "$i" --nomultimaint -r "" --distribution $1
+	dch --changelog "$i" --nomultimaint --distribution $1 --local ~$1.myriadrf ""
+	dch --changelog "$i" --nomultimaint --release ""
 	if [ $? -ne 0 ]
 	  then exit
 	fi
