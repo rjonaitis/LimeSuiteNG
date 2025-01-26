@@ -51,6 +51,8 @@ jobs:
           source /etc/os-release
           DEBFULLNAME="Lime Microsystems"
           DEBEMAIL="apps@limemicro.com"
+          DEB_BUILD_OPTIONS="noautodbgsym"
+
           echo "ubuntu_codename=$UBUNTU_CODENAME" >> $GITHUB_ENV
           dch -r "" --distribution $UBUNTU_CODENAME
 

@@ -3,7 +3,7 @@ Section: comm
 Priority: optional
 Maintainer: Lime Microsystems <info@limemicro.com>
 Build-Depends:
-    dkms,
+    dkms | dh-dkms,
     dh-python,
     build-essential,
     gnuradio-dev,
