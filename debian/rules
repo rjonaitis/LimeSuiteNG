@@ -21,6 +21,7 @@ override_dh_auto_configure:
 	dh_auto_configure -- \
 		-DCMAKE_BUILD_TYPE="Release" \
 		-DUDEV_RULES_RELOAD_ON_INSTALL=FALSE \
+		-DUDEV_RULES_INSTALL_PATH="/lib/udev/rules.d/" \
 		-DBUILD_PLUGINS_AMARISOFT=FALSE \
 		-DLIMEPCIE_DKMS=OFF \
 		-DLIMEPCIE_INSTALL=OFF \
