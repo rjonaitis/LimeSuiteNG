@@ -47,18 +47,19 @@ jobs:
 
       - name: Set Debian variables
         run: |
-          cd source
+          cd ${{github.workspace}}/source
           source /etc/os-release
-          DEBFULLNAME="Lime Microsystems"
-          DEBEMAIL="apps@limemicro.com"
-          DEB_BUILD_OPTIONS="noautodbgsym"
-
+          export DEBFULLNAME="Lime Microsystems"
+          export DEBEMAIL="apps@limemicro.com"
           echo "ubuntu_codename=$UBUNTU_CODENAME" >> $GITHUB_ENV
-          dch -r "" --distribution $UBUNTU_CODENAME
+
+          cd debian
+          ./set_debian_changelog_codenames.sh $UBUNTU_CODENAME
 
       - name: Build
         run: |
-          cd source
+          cd ${{github.workspace}}/source
+          export DEB_BUILD_OPTIONS="noautodbgsym"
           dpkg-buildpackage --no-sign
 
       - name: Archive packaging artifacts
