@@ -2,9 +2,6 @@ name: Packaging
 
 on:
   workflow_dispatch:
-  push:
-    branches: [stable]
-  pull_request:
 
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
