@@ -27,15 +27,6 @@ jobs:
         with:
           path: 'source'
 
-      - name: Set Debian variables
-        run: |
-          cd source
-          source /etc/os-release
-          DEBFULLNAME="Lime Microsystems"
-          DEBEMAIL="apps@limemicro.com"
-          echo "ubuntu_codename=$UBUNTU_CODENAME" >> $GITHUB_ENV
-          dch -r "" --distribution $UBUNTU_CODENAME
-
       - name: Install GNURadio
         if: ${{ matrix.os != 'ubuntu-20.04'}} # 20.04 has GNURadio 3.8.1, it's python bindings are not using pybind11, so not compatible
         run: |
@@ -53,6 +44,15 @@ jobs:
         if: ${{ matrix.os == 'ubuntu-24.04'}}
         run: |
           sudo apt-get install dh-dkms
+
+      - name: Set Debian variables
+        run: |
+          cd source
+          source /etc/os-release
+          DEBFULLNAME="Lime Microsystems"
+          DEBEMAIL="apps@limemicro.com"
+          echo "ubuntu_codename=$UBUNTU_CODENAME" >> $GITHUB_ENV
+          dch -r "" --distribution $UBUNTU_CODENAME
 
       - name: Build
         run: |
