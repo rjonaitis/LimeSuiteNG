@@ -26,7 +26,7 @@ Depends:
     limesuiteng-gui,
     limesuiteng-cli,
 Recommends:
-    limesuiteng-gnuradio,
+    gr-limesuiteng,
     limesuiteng-soapysdr
 Description: metapackage for installing all LimeSuiteNG components.
  This package installs all LimeSuiteNG available components
