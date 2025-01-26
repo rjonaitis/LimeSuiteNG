@@ -31,7 +31,7 @@ Recommends:
 Description: metapackage for installing all LimeSuiteNG components.
  This package installs all LimeSuiteNG available components
 
-Package: limesuiteng-liblimesuiteng
+Package: liblimesuiteng
 Section: libs
 Architecture: any
 Multi-Arch: same
@@ -39,12 +39,13 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends:
     ${shlibs:Depends},
     ${misc:Depends},
+Recommends:
     limesuiteng-udev,
     limepcie
 Description: runtime shared libraries.
  Core of the LimeSuiteNG runtime
 
-Package: limesuiteng-liblimesuiteng-legacyapi
+Package: limesuiteng-legacyapi
 Section: libs
 Architecture: any
 Multi-Arch: same
@@ -54,7 +55,7 @@ Depends:
 Description: Legacy LimeSuite API wrapper over LimeSuiteNG
  Provides legacy LimeSuite C API wrapper for LimeSuiteNG library
 
-Package: limesuiteng-liblimesuiteng-dev
+Package: limesuiteng-dev
 Section: libdevel
 Architecture: any
 Depends:
@@ -83,7 +84,7 @@ Architecture: all
 Depends: udev
 Description: UDEV rules for LimeSuiteNG devices.
 
-Package: limesuiteng-limepcie
+Package: limepcie
 Section: comm
 Architecture: any
 Multi-Arch: same
@@ -91,7 +92,7 @@ Depends:
     ${misc:Depends}
 Description: PCIe driver for LimeSDR based devices.
 
-Package: limesuiteng-gnuradio
+Package: gr-limesuiteng
 Section: comm
 Architecture: any
 Multi-Arch: same

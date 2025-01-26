@@ -1,0 +1,2 @@
+each package has it's own changelog, to be able to have it's own versioning.
+But the name inside each changelog has to match the Source package name, otherwise dpkg-buildpackage will complain.

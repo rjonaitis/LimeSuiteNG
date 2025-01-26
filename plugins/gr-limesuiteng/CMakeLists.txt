@@ -18,8 +18,12 @@ set(CMAKE_BUILD_TYPE
 ########################################################################
 cmake_minimum_required(VERSION 3.15)
 
-project(gr-limesuiteng CXX C)
+project(
+    gr-limesuiteng
+    VERSION 1.0.0
+    LANGUAGES CXX C)
 message(STATUS "##### <${PROJECT_NAME}> #####")
+# CheckDebianChangelogVersion(${PROJECT_NAME})
 enable_testing()
 
 # override GrPython, so it would correctly detect python packages install directory
@@ -80,10 +84,10 @@ endif()
 
 # Set the version information here
 # cmake-format: off
-set(VERSION_MAJOR 1)
-set(VERSION_API   0)
+set(VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
+set(VERSION_API   ${PROJECT_VERSION_MINOR})
 set(VERSION_ABI   0)
-set(VERSION_PATCH 0)
+set(VERSION_PATCH ${PROJECT_VERSION_PATCH})
 # cmake-format: on
 
 cmake_policy(SET CMP0011 NEW)

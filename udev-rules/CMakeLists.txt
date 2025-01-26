@@ -5,6 +5,8 @@ project(
     LANGUAGES NONE
     HOMEPAGE_URL https://github.com/myriadrf/LimeSuiteNG/tree/develop/udev-rules)
 
+checkdebianchangelogversion(${PROJECT_NAME})
+
 set(UDEV_RULES_INSTALL_PATH
     "/etc/udev/rules.d"
     CACHE STRING "Path where to install udev rules")

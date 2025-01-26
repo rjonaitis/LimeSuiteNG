@@ -4,6 +4,8 @@ project(
     VERSION 1.0.0
     LANGUAGES CXX)
 
+checkdebianchangelogversion(${PROJECT_NAME})
+
 find_package(kissfft CONFIG REQUIRED)
 
 # common functionality among cli tools
