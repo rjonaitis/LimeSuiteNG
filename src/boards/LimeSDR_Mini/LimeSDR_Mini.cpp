@@ -51,7 +51,7 @@ static const uint8_t SPI_LMS7002M = 0;
 static const uint8_t SPI_FPGA = 1;
 
 static const CustomParameter CP_VCTCXO_DAC_v1 = { "VCTCXO DAC (runtime)"s, 0, 0, 255, false };
-static const CustomParameter CP_VCTCXO_DAC_v2 = { "VCTCXO DAC (runtime)"s, 0, 0, 1024, false };
+static const CustomParameter CP_VCTCXO_DAC_v2 = { "VCTCXO DAC (runtime)"s, 0, 0, 1023, false };
 
 static const CustomParameter CP_TEMPERATURE = { "Board Temperature"s, 1, 0, 65535, true };
 
