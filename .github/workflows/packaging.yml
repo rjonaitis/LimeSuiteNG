@@ -57,6 +57,7 @@ jobs:
         run: |
           cd ${{github.workspace}}/source
           export DEB_BUILD_OPTIONS="noautodbgsym"
+          export SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)
           dpkg-buildpackage --no-sign
 
       - name: Archive packaging artifacts
