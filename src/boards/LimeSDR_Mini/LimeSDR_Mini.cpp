@@ -50,7 +50,9 @@ namespace limesdrmini {
 static const uint8_t SPI_LMS7002M = 0;
 static const uint8_t SPI_FPGA = 1;
 
-static const CustomParameter CP_VCTCXO_DAC = { "VCTCXO DAC (runtime)"s, 0, 0, 255, false };
+static const CustomParameter CP_VCTCXO_DAC_v1 = { "VCTCXO DAC (runtime)"s, 0, 0, 255, false };
+static const CustomParameter CP_VCTCXO_DAC_v2 = { "VCTCXO DAC (runtime)"s, 0, 0, 1024, false };
+
 static const CustomParameter CP_TEMPERATURE = { "Board Temperature"s, 1, 0, 65535, true };
 
 static const std::vector<std::pair<uint16_t, uint16_t>> lms7002defaultsOverrides_1v0 = { //
@@ -181,9 +183,13 @@ LimeSDR_Mini::LimeSDR_Mini(std::shared_ptr<IComms> spiLMS,
     FPGA::GatewareInfo gw = mFPGA->GetGatewareInfo();
     FPGA::GatewareToDescriptor(gw, descriptor);
 
-    descriptor.customParameters.push_back(limesdrmini::CP_VCTCXO_DAC);
-    if (descriptor.name == GetDeviceName(LMS_DEV_LIMESDRMINI_V2))
+    if (descriptor.name == GetDeviceName(LMS_DEV_LIMESDRMINI))
     {
+        descriptor.customParameters.push_back(limesdrmini::CP_VCTCXO_DAC_v1);
+    }
+    else if (descriptor.name == GetDeviceName(LMS_DEV_LIMESDRMINI_V2))
+    {
+        descriptor.customParameters.push_back(limesdrmini::CP_VCTCXO_DAC_v2);
         descriptor.customParameters.push_back(limesdrmini::CP_TEMPERATURE);
     }
 
