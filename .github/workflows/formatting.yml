@@ -8,7 +8,7 @@ on:
 
 jobs:
   clang-format:
-    runs-on: [ubuntu-latest]
+    runs-on: [ubuntu-22.04]
 
     steps:
       - uses: actions/checkout@v4
@@ -23,22 +23,15 @@ jobs:
       - name: Run clang-format
         run: |
           clang-format --version
-          before="${{ github.event.pull_request.base.sha }}"
-          if [ "$before" == "" ]; then
-            before="${{ github.event.before }}"
+          base_hash="${{ github.event.pull_request.base.sha }}"
+          # if base is not provided, do whole source formatting
+          if [ "$base_hash" == "" ]; then
+            base_hash=$(git rev-list --max-parents=0 HEAD)
           fi
-
-          diff=$(git-clang-format --diff --commit "$before")
-          [ "$diff" = "no modified files to format" ] && exit 0
-          [ "$diff" = "clang-format did not modify any files" ] && exit 0
-
-          printf "\033[1mYou have introduced coding style breakages, suggested changes:\n\n"
-
-          echo "$diff" | colordiff
-          exit 1
+          ./clang-format-all.sh "$base_hash"
 
   cmake-format:
-    runs-on: [ubuntu-latest]
+    runs-on: [ubuntu-22.04]
 
     steps:
       - uses: actions/checkout@v4
@@ -64,7 +57,7 @@ jobs:
 
   clang-tidy:
     if: false # skip job until it's properly setup to be runnable locally
-    runs-on: [ubuntu-24.04] # Change to ubuntu-latest when that changes over
+    runs-on: [ubuntu-22.04] # Change to ubuntu-latest when that changes over
 
     steps:
       - uses: actions/checkout@v4
