@@ -1,9 +1,9 @@
 Source: limesuiteng
 Section: comm
 Priority: optional
-Maintainer: Lime Microsystems <info@limemicro.com>
+Maintainer: Lime Microsystems <apps@limemicro.com>
 Build-Depends:
-    dkms,
+    dkms | dh-dkms,
     dh-python,
     build-essential,
     gnuradio-dev,
@@ -23,10 +23,10 @@ Section: comm
 Architecture: any
 Depends:
     liblimesuiteng,
-    limesuiteng-gui,
     limesuiteng-cli,
 Recommends:
-    limesuiteng-gnuradio,
+    limesuiteng-gui,
+    gr-limesuiteng,
     limesuiteng-soapysdr
 Description: metapackage for installing all LimeSuiteNG components.
  This package installs all LimeSuiteNG available components
@@ -39,22 +39,23 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends:
     ${shlibs:Depends},
     ${misc:Depends},
+Recommends:
     limesuiteng-udev,
     limepcie
 Description: runtime shared libraries.
  Core of the LimeSuiteNG runtime
 
-Package: liblimesuiteng-legacyapi
+Package: limesuiteng-legacyapi
 Section: libs
 Architecture: any
 Multi-Arch: same
 Depends:
     ${shlibs:Depends},
-    liblimesuiteng
+    ${misc:Depends},
 Description: Legacy LimeSuite API wrapper over LimeSuiteNG
  Provides legacy LimeSuite C API wrapper for LimeSuiteNG library
 
-Package: liblimesuiteng-dev
+Package: limesuiteng-dev
 Section: libdevel
 Architecture: any
 Depends:
@@ -67,7 +68,6 @@ Architecture: any
 Depends:
     ${shlibs:Depends},
     ${misc:Depends},
-    liblimesuiteng
 Description: command line interface tools.
 
 Package: limesuiteng-gui
@@ -75,8 +75,7 @@ Section: comm
 Architecture: any
 Depends:
     ${shlibs:Depends},
-    libwxgtk3.0-dev | libwxgtk3.0-gtk3-dev | libwxgtk3.2-dev,
-    liblimesuiteng
+    ${misc:Depends},
 Description: Graphical User Interface for LimeSDR based devices.
 
 Package: limesuiteng-udev
@@ -93,14 +92,13 @@ Depends:
     ${misc:Depends}
 Description: PCIe driver for LimeSDR based devices.
 
-Package: limesuiteng-gnuradio
+Package: gr-limesuiteng
 Section: comm
 Architecture: any
 Multi-Arch: same
 Depends:
     ${shlibs:Depends},
     ${misc:Depends},
-    gnuradio
 Enhances:
     gnuradio
 Description: GNU Radio plugin of LimeSDR devices

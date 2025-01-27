@@ -8,6 +8,7 @@ project(
     VERSION 1.0.0
     LANGUAGES CXX)
 
+checkdebianchangelogversion(${PROJECT_NAME})
 include(FeatureSummary)
 include(CMakeDependentOption)
 

@@ -9,6 +9,7 @@ project(
     VERSION 0.3.0
     DESCRIPTION "Core library for interacting with LimeSDR based devices"
     LANGUAGES C CXX)
+checkdebianchangelogversion(${PROJECT_NAME})
 
 add_library(limesuiteng)
 # namespaced target for use in plugins build

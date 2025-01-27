@@ -24,42 +24,6 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     target_compile_options(${AMARISOFT_PLUGIN_TARGET_NAME} PRIVATE -Wall -Wpedantic)
     target_compile_options(${AMARISOFT_PLUGIN_TARGET_NAME} PRIVATE -fvisibility=hidden -fvisibility-inlines-hidden)
     target_compile_options(${AMARISOFT_PLUGIN_TARGET_NAME} PRIVATE "-z,defs")
-
-    if(NOT DEFAULT_SIMD_FLAGS)
-        set(DEFAULT_SIMD_FLAGS "native")
-    endif()
-    if("${CMAKE_INSTALL_PREFIX}" STREQUAL "/usr" AND X86)
-        set(DEFAULT_SIMD_FLAGS "SSE3")
-    endif()
-
-    set(ENABLE_SIMD_FLAGS
-        "${DEFAULT_SIMD_FLAGS}"
-        CACHE STRING "Set compiler SIMD flags")
-    set_property(CACHE ENABLE_SIMD_FLAGS PROPERTY STRINGS none native SSE3 SSE4.2 AVX AVX2)
-
-    if(${ENABLE_SIMD_FLAGS} MATCHES "native")
-        target_compile_options(${AMARISOFT_PLUGIN_TARGET_NAME} PRIVATE -march=native)
-        if(X86)
-            target_compile_options(${AMARISOFT_PLUGIN_TARGET_NAME} PRIVATE -mfpmath=sse)
-        endif()
-        message(STATUS "Enabling native optimizations")
-    elseif(${ENABLE_SIMD_FLAGS} MATCHES "AVX2")
-        target_compile_options(
-            ${AMARISOFT_PLUGIN_TARGET_NAME}
-            PRIVATE -mmmx -msse -msse2 -msse3 -mssse3 -msse4.1 -msse4.2 -mpopcnt -mavx -mfma -mavx2 -mfpmath=sse)
-        message(STATUS "Enabling AVX2 instructions")
-    elseif(${ENABLE_SIMD_FLAGS} MATCHES "AVX")
-        target_compile_options(
-            ${AMARISOFT_PLUGIN_TARGET_NAME} PRIVATE -mmmx -msse -msse2 -msse3 -mssse3 -msse4.1 -msse4.2 -mpopcnt -mavx -mfpmath=sse)
-        message(STATUS "Enabling AVX instructions")
-    elseif(${ENABLE_SIMD_FLAGS} MATCHES "SSE4.2")
-        target_compile_options(
-            ${AMARISOFT_PLUGIN_TARGET_NAME} PRIVATE -mmmx -msse -msse2 -msse3 -mssse3 -msse4.1 -msse4.2 -mpopcnt -mfpmath=sse)
-        message(STATUS "Enabling SSE4.2 instructions")
-    elseif(${ENABLE_SIMD_FLAGS} MATCHES "SSE3")
-        target_compile_options(${AMARISOFT_PLUGIN_TARGET_NAME} PRIVATE -mmmx -msse -msse2 -msse3 -mfpmath=sse)
-        message(STATUS "Enabling SSE3 instructions")
-    endif()
 endif()
 
 target_link_libraries(${AMARISOFT_PLUGIN_TARGET_NAME} limesuiteng)

@@ -6,8 +6,9 @@ project(
     VERSION 1.0.0 # soapy_sdr_module_util() picks up project version
     DESCRIPTION "LimeSuiteNG bindings for SoapySDR"
     LANGUAGES C CXX)
-
 message(STATUS "##### <${PROJECT_NAME}> #####")
+
+checkdebianchangelogversion(${PROJECT_NAME})
 
 find_package(SoapySDR CONFIG REQUIRED)
 set_package_properties(
