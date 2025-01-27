@@ -187,7 +187,12 @@ function(install_kernel_module_modprobe)
     install(FILES "${OBJECTS_DIR}/${KMOD_INSTALL_NAME}.ko" DESTINATION /lib/modules/${KMOD_KERNEL_RELEASE}/extra)
 
     # install source code
-    install(DIRECTORY ${OBJECTS_DIR} DESTINATION "/usr/src")
+    set(MODULE_SRC_DESTINATION "/usr/src")
+    install(DIRECTORY ${OBJECTS_DIR} DESTINATION ${MODULE_SRC_DESTINATION} FILES_MATCHING PATTERN "*.h")
+    install(DIRECTORY ${OBJECTS_DIR} DESTINATION ${MODULE_SRC_DESTINATION} FILES_MATCHING PATTERN "*.c")
+    install(DIRECTORY ${OBJECTS_DIR} DESTINATION ${MODULE_SRC_DESTINATION} FILES_MATCHING PATTERN "Kbuild")
+    install(DIRECTORY ${OBJECTS_DIR} DESTINATION ${MODULE_SRC_DESTINATION} FILES_MATCHING PATTERN "Makefile")
+    install(DIRECTORY ${OBJECTS_DIR} DESTINATION ${MODULE_SRC_DESTINATION} FILES_MATCHING PATTERN "*.conf")
 
     # Generate module dependencies, otherwise modprobe won't see the module
     install(CODE "execute_process(COMMAND sudo depmod)")
