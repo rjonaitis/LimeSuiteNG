@@ -53,7 +53,12 @@ function(add_kernel_module)
 
     # set(MODULE_SOURCE_TARBALL "${CMAKE_CURRENT_BINARY_DIR}/${KMOD_NAME}.tar.gz")
     # set(MAKE_SOURCE_TARBALL ${CMAKE_COMMAND} -E tar "cfvz" "${MODULE_SOURCE_TARBALL}" "${KBUILD_FILE_DIR}")
-    add_custom_target(${KMOD_NAME} ALL DEPENDS ${MODULE_KOBJECT})
+    string(TOUPPER ${KMOD_NAME} UPPERCASE_NAME)
+    if (NOT ${UPPERCASE_NAME}_DKMS)
+        add_custom_target(${KMOD_NAME} ALL DEPENDS ${MODULE_KOBJECT})
+    else()
+        add_custom_target(${KMOD_NAME} DEPENDS ${MODULE_KOBJECT})
+    endif()
 
     # add_custom_command(TARGET ${KMOD_NAME}
     #     PRE_BUILD
