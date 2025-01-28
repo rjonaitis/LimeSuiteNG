@@ -5,7 +5,7 @@ function(CheckDebianChangelogVersion PACKAGE_NAME)
         set(PACKAGE_NAME ${PROJECT_NAME})
     endif()
 
-    set(PROJECT_DEBIAN_CHANGELOG "${CMAKE_SOURCE_DIR}/debian/${PROJECT_NAME}.changelog")
+    set(PROJECT_DEBIAN_CHANGELOG "${CMAKE_SOURCE_DIR}/debian/${PACKAGE_NAME}.changelog")
     file(READ ${PROJECT_DEBIAN_CHANGELOG} changelog_txt)
     string(REGEX MATCH "([0-9]+)\\.([0-9]+)\\.([0-9]+)" CHANGELOG_MATCH "${changelog_txt}")
     if(NOT CHANGELOG_MATCH)

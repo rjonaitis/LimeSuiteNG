@@ -11,7 +11,7 @@ project(
     DESCRIPTION "Linux kernel module for LimeSDR PCIe based devices"
     LANGUAGES C)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_LIST_DIR}/cmake")
-checkdebianchangelogversion(${PROJECT_NAME})
+checkdebianchangelogversion(${PROJECT_NAME}-dkms)
 include(add_kernel_module)
 
 find_package(LinuxKernelHeaders REQUIRED)

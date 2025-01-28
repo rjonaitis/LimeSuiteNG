@@ -41,7 +41,7 @@ Depends:
     ${misc:Depends},
 Recommends:
     limesuiteng-udev,
-    limepcie
+    limepcie-dkms
 Description: runtime shared libraries.
  Core of the LimeSuiteNG runtime
 
@@ -84,7 +84,7 @@ Architecture: all
 Depends: udev
 Description: UDEV rules for LimeSuiteNG devices.
 
-Package: limepcie
+Package: limepcie-dkms
 Section: comm
 Architecture: any
 Multi-Arch: same
