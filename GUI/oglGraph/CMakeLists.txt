@@ -4,7 +4,6 @@
 set(OpenGL_GL_PREFERENCE GLVND)
 find_package(OpenGL REQUIRED)
 if(TARGET OpenGL::GL) # GLEW header needs GL/gl.h
-    # OSX has can have glew package, but it's includes fail.
     find_package(GLEW) # use system libs
     if(NOT GLEW_FOUND)
         fetchcontent_declare(
@@ -24,6 +23,13 @@ if(TARGET OpenGL::GL) # GLEW header needs GL/gl.h
 
         # compile only when other targets link to it
         set_target_properties(GLEW PROPERTIES EXCLUDE_FROM_ALL TRUE EXCLUDE_FROM_DEFAULT_BUILD TRUE)
+
+        if(NOT TARGET GLEW::GLEW)
+            add_library(GLEW::GLEW INTERFACE IMPORTED)
+            set_target_properties(GLEW::GLEW PROPERTIES
+                INTERFACE_LINK_LIBRARIES GLEW
+            )
+        endif()
     endif()
 else()
     message(FATAL_ERROR "OpenGL/GL not found!")
@@ -41,4 +47,4 @@ elseif(UNIX)
     set(GL_LIBS ${OPENGL_LIBRARIES})
 endif()
 
-target_link_libraries(limeGUI PRIVATE GLEW ${GL_LIBS})
+target_link_libraries(limeGUI PRIVATE GLEW::GLEW ${GL_LIBS})
