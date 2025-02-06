@@ -26,9 +26,7 @@ if(TARGET OpenGL::GL) # GLEW header needs GL/gl.h
 
         if(NOT TARGET GLEW::GLEW)
             add_library(GLEW::GLEW INTERFACE IMPORTED)
-            set_target_properties(GLEW::GLEW PROPERTIES
-                INTERFACE_LINK_LIBRARIES GLEW
-            )
+            set_target_properties(GLEW::GLEW PROPERTIES INTERFACE_LINK_LIBRARIES GLEW)
         endif()
     endif()
 else()
