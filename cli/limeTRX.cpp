@@ -337,10 +337,6 @@ int main(int argc, char** argv)
         const int deviceChannelCount = device->GetDescriptor().rfSOC[index].channelCount;
         for (int j = 0; j < deviceChannelCount; ++j)
         {
-            if (rx)
-                streamCfg.channels.at(TRXDir::Rx).push_back(j);
-            if (tx)
-                streamCfg.channels.at(TRXDir::Tx).push_back(j);
             if (rx_require > 0)
             {
                 streamCfg.channels.at(TRXDir::Rx).push_back(j);
@@ -351,11 +347,15 @@ int main(int argc, char** argv)
                 streamCfg.channels.at(TRXDir::Tx).push_back(j);
                 --tx_require;
             }
+            if (rx_require == 0 && tx_require == 0)
+                break;
         }
 
         stream->Add(device->StreamCreate(streamCfg, index));
     }
 
+    rx_require = rx ? channelCount : 0;
+    tx_require = tx ? channelCount : 0;
     streamCfg.channels.at(TRXDir::Rx).clear();
     for (int i = 0; rx && i < rx_require; ++i)
         streamCfg.channels.at(TRXDir::Rx).push_back(i);
