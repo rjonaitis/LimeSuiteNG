@@ -51,7 +51,7 @@ void lms7002m_sleep(long timeInMicroseconds)
     time.tv_nsec = timeInMicroseconds * 1000;
 
     // POSIX function, non-standard C
-    nanosleep(&time, NULL);
+    // nanosleep(&time, NULL);
     #endif // __KERNEL__
 #endif
 }
