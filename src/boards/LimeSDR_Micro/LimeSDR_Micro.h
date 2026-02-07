@@ -28,6 +28,7 @@ class ISPI;
 class LMS64C_SPI;
 class I2C_bus;
 class LA9310;
+class GPS;
 
 class LimeSDR_Micro : public LMS7002M_SDRDevice
 {
@@ -147,6 +148,7 @@ class LimeSDR_Micro : public LMS7002M_SDRDevice
     std::shared_ptr<I2C_bus> mI2C;
 
     std::shared_ptr<LA9310> la9310;
+    std::shared_ptr<GPS> gps;
 
     bool mConfigInProgress;
 };

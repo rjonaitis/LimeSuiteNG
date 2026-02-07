@@ -12,6 +12,7 @@
 
 #include "boards/LimeSDR_Micro/LimeSDR_Micro.h"
 #include "chips/LMS7002M/validation.h"
+#include "chips/GPS/GenericGPS.h"
 #include "comms/PCIe/LimePCIe.h"
 #include "comms/PCIe/LimePCIeDMA.h"
 #include "comms/IDMA.h"
@@ -94,6 +95,7 @@ LimeSDR_Micro::LimeSDR_Micro(std::shared_ptr<ISPI> spiRFsoc,
     , mSerialPort(control)
     , mStreamingPort(streamingPort)
     , la9310(std::make_shared<LA9310>(streamingPort))
+    , gps(std::make_shared<GenericGPS>("/dev/ttyLA9310_UART0"))
     // , mI2C(i2c_bus)
     , mConfigInProgress(false)
 {
@@ -166,6 +168,7 @@ LimeSDR_Micro::LimeSDR_Micro(std::shared_ptr<ISPI> spiRFsoc,
     desc.socTree = std::make_shared<DeviceTreeNode>(this, "SDRDevice", "LimeSDR-Micro"s);
     desc.socTree->children.push_back(std::make_shared<DeviceTreeNode>(la9310.get(), "LA9310"s));
     desc.socTree->children.push_back(std::make_shared<DeviceTreeNode>(mLMSChips.at(0).get(), "LMS7002M"s));
+    desc.socTree->children.push_back(std::make_shared<DeviceTreeNode>(gps.get(), "GPS"s));
 }
 
 LimeSDR_Micro::~LimeSDR_Micro()
