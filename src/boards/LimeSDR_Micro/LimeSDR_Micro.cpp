@@ -343,13 +343,13 @@ static OpStatus SetLA9310SamplingRate(std::shared_ptr<LimeSDR_Micro_M4> la9310, 
     {
         adc_divider_mask = 0xF;
         dac_divider_mask = 0x1;
-        oversample = 4;
+        oversample = 1;
     }
     else if (sampleRate <= 40e6)
     {
         adc_divider_mask = 0xF;
         dac_divider_mask = 0x1;
-        oversample = 2;
+        oversample = 1;
     }
     else if (sampleRate <= 80e6)
     {
@@ -408,7 +408,7 @@ OpStatus LimeSDR_Micro::Configure(const SDRConfig& cfg, uint8_t socIndex)
 
     if (cfg.referenceClockFreq > 0)
     {
-        uint32_t currentRefClk = la9310->GetReferenceClock();
+        // uint32_t currentRefClk = la9310->GetReferenceClock();
         bool external = cfg.referenceClockSource != 0;
         status = la9310->SetReferenceClock(cfg.referenceClockFreq, external);
         if (status != OpStatus::Success)

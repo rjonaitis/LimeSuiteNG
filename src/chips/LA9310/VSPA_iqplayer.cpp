@@ -17,7 +17,10 @@
 #include "comms/PCIe/LA9310_PCIe.h"
 #include "drivers/linux/la9310_limesdr/common_headers/la9310_host_if.h"
 
-#include "cli/limeVSPA/vspa_state.h"
+#include "vspa_state.h"
+#include "MemoryWindow.h"
+#include "vspa_features.h"
+#include "vspa/VSPA_Trace.h"
 
 #ifndef M_PI
     #define M_PI 3.14159265358979323846 /* pi */
@@ -71,7 +74,6 @@ e_rx_channel VSPA_iqplayer::api_channel_remap(uint32_t index)
 VSPA_iqplayer::VSPA_iqplayer(std::shared_ptr<LA9310_PCIe> port)
     : port(port)
     , mailbox(std::make_shared<VSPA_mailbox>(port))
-    , tx_dma_channel_count(1)
     , rx_dma_channel_count(1)
 {
     Initialize();
@@ -91,18 +93,29 @@ OpStatus VSPA_iqplayer::Initialize()
     vl_iqflood_ddr_addr = reinterpret_cast<uint8_t*>(v_iqflood_ddr.vaddr);
     iqflood_size = v_iqflood_ddr.size;
 
+    MemoryWindow iqflood;
+    iqflood.host_va = v_iqflood_ddr.vaddr;
+    iqflood.size = v_iqflood_ddr.size;
+    iqflood.ep_pa = LA9310_IQFLOOD_PHYS_ADDR;
+
     vspa_dmem_proxy_ro = reinterpret_cast<const volatile vspa_state_t*>(dmem_proxy.vaddr);
     port->dmem_sync_to_cpu(vspa_dmem_proxy_ro, sizeof(vspa_state_t));
-
-    mTx.fifo_start_addr = vspa_dmem_proxy_ro->info.tx_config.ddr_base_address - LA9310_IQFLOOD_PHYS_ADDR;
-    mTx.fifo_size = vspa_dmem_proxy_ro->info.tx_config.ddr_size;
-    mTx.fifo_offset = 0;
 
     uint8_t* BAR2_addr = reinterpret_cast<uint8_t*>(port->GetBar(LA9310_WINDOW_BAR2).vaddr);
     vspa_dmem_proxy_wo = reinterpret_cast<volatile vspa_state_t*>(BAR2_addr + 0x400000 + vspa_dmem_proxy_ro->info.dmemProxyOffset);
 
     printf_dbg_log("VSPA_iqplayer: IQFLOOD size: %lu, Rx channels %u\n", v_iqflood_ddr.size, vspa_dmem_proxy_ro->info.rx_num_chan);
     port->dmem_sync_to_device(vspa_dmem_proxy_ro, sizeof(vspa_state_t));
+
+// <<<<<<< HEAD
+    MemoryWindow tx_iqflood = iqflood.subspan(dmem_proxy_reserved, 512 * 1024);
+
+    vspa_state_t* vspa_interface = const_cast<vspa_state_t*>(vspa_dmem_proxy_wo);
+
+    tx_dma = std::make_shared<VSPA_DMA>(mailbox, &vspa_interface->internals.tx_dma_schedule, tx_iqflood);
+// =======
+    ScanFeatures();
+// >>>>>>> micro-tdd-fix
 
     return OpStatus::Success;
 }
@@ -119,23 +132,14 @@ OpStatus VSPA_iqplayer::TxEnable(bool enable, bool flow_control_disable)
 {
     const mbox_opc_e command = MBOX_OPC_TX_CONTROL;
     const bool ddr_enable = enable;
-    const bool test_load_start = false;
 
     uint32_t loword = 0;
     uint32_t hiword = 0;
     hiword |= command << 24;
-    // hiword |= host_flow_control_disable ? 0x00400000 : 0;
-    // hiword |= test_load_start ? 0x00200000 : 0;
     hiword |= ddr_enable ? (1 << 0) : 0;
-    // hiword |= ddr_rd_dma_mBurst ? 0x00080000 : 0;
-    // hiword |= (ddr_rd_dma_ch_nb << 16) & 0x00070000;
-    // hiword |= chunkCount4k & 0x0000FFFF;
 
     uint64_t value = uint64_t(hiword) << 32 | loword;
-    printf_dbg_log("IQPlayer: TxControl enable:%i, disable_flow_control:%i bytes_preloaded:%li\n",
-        enable,
-        flow_control_disable,
-        mTx.bytes_produced);
+    printf_dbg_log("IQPlayer: TxControl enable:%i, disable_flow_control:%i\n", enable, flow_control_disable);
     uint64_t response = 0;
     OpStatus status = mailbox->Message(vspa_cpu_id, vspa_mbox_id, value, &response);
     if (status != OpStatus::Success)
@@ -195,12 +199,9 @@ OpStatus VSPA_iqplayer::SetupResources(uint32_t rxMask, uint32_t txCount)
     uint32_t mem_offset = dmem_proxy_reserved;
 
     // assert((proxyalloc + txalloc + rxalloc) < 4 * 1024 * 1024);
-    if (txCount)
+    // if (txCount)
     {
         size_t txalloc = 1024 * 512;
-        status = SetupTx(mem_offset, txalloc);
-        if (status != OpStatus::Success)
-            return status;
         mem_offset += txalloc;
     }
     if (rxMask)
@@ -263,62 +264,6 @@ OpStatus VSPA_iqplayer::SetupRx(uint32_t channel, uint32_t fifo_start_offset, ui
 
     uint64_t value = uint64_t(hiword) << 32 | loword;
     printf_dbg_log("IQPlayer: Setup FIFO Rx[%i], fifo_size:%u, fifo_base:%08X\n", channel, fifo_size, loword);
-    uint64_t response = 0;
-    OpStatus status = mailbox->Message(vspa_cpu_id, vspa_mbox_id, value, &response);
-    if (status != OpStatus::Success)
-        return status;
-    return (response & 0xFF) == 0 ? OpStatus::Success : OpStatus::Error;
-}
-
-OpStatus VSPA_iqplayer::SetupTx(uint32_t fifo_start_offset, uint32_t fifo_size)
-{
-    // const std::lock_guard<std::mutex> lock(mx);
-    VSPA_FIFO_State& txState = mTx;
-
-    if (fifo_size == 0)
-        return OpStatus::InvalidValue;
-
-    // TODO: choose 1 or 2 based on system clock frequency
-    // When 2 is used VSPA Tx DMA transfer migth get stuck in running state when system clock <30MHz
-    // Needs power cycle to recover from that.
-    // if (expectedTxDataRate < 200e6)
-    tx_dma_channel_count = 1;
-    // else
-    //     tx_dma_channel_count = 2;
-
-    // init fifo pointers
-    txState.fifo_start_addr = fifo_start_offset;
-    txState.fifo_size = fifo_size;
-    txState.fifo_offset = 0;
-
-    // init flow control
-    txState.bytes_consumed = 0;
-    txState.bytes_produced = 0;
-
-    vspa_dmem_proxy_wo->data_flow.tx.produced = 0;
-    vspa_dmem_proxy_wo->data_flow.tx.consumed = 0;
-
-    const mbox_opc_e command = MBOX_OPC_TX_HOST_FIFO_CONFIG;
-
-    assert(fifo_size / 4096 < 0x10000);
-    assert(fifo_size / 4096 > 0);
-    if (fifo_size == 0)
-        return OpStatus::InvalidValue;
-
-    const uint16_t chunkCount4k = fifo_size / 4096;
-
-    uint32_t loword = LA9310_IQFLOOD_PHYS_ADDR + mTx.fifo_start_addr;
-    uint32_t hiword = command << 24;
-    // hiword |= host_flow_control_disable ? 0x00400000 : 0;
-    // hiword |= test_load_start ? 0x00200000 : 0;
-    // hiword |= start ? 0x00100000 : 0;
-    // hiword |= ddr_rd_dma_mBurst ? 0x00080000 : 0;
-    // hiword |= (ddr_rd_dma_ch_nb << 16) & 0x00070000;
-    hiword |= chunkCount4k & 0x0000FFFF;
-
-    uint64_t value = uint64_t(hiword) << 32 | loword;
-    printf_dbg_log(
-        "IQPlayer: Setup FIFO Tx, fifo_size:%u, fifo_base:%08X bytes_preloaded:%li\n", fifo_size, loword, mTx.bytes_produced);
     uint64_t response = 0;
     OpStatus status = mailbox->Message(vspa_cpu_id, vspa_mbox_id, value, &response);
     if (status != OpStatus::Success)
@@ -412,124 +357,6 @@ int32_t VSPA_iqplayer::Receive(uint32_t channel, uint32_t* destination, uint32_t
         rxState.fifo_offset = 0;
 
     return data_size;
-}
-
-int32_t VSPA_iqplayer::Transmit(const void* src, uint32_t write_size, uint64_t timestamp)
-{
-    // const std::lock_guard<std::mutex> lock(mx);
-    volatile VSPA_FIFO_State& txState = mTx;
-
-    port->dmem_sync_to_cpu(&vspa_dmem_proxy_ro->data_flow, sizeof(vspa_flow_control));
-
-    txState.bytes_consumed = vspa_dmem_proxy_ro->data_flow.tx.consumed;
-    const uint64_t fifo_filled_bytes = txState.bytes_produced - txState.bytes_consumed;
-    // if (fifo_filled_bytes > txState.fifo_size)
-    // {
-    //     printf("!!!IQPlayer tx fifo overflow\n");
-    // }
-
-    const uint32_t contiguousBytesSize = txState.fifo_size - txState.fifo_offset;
-    uint32_t empty_size = txState.fifo_size - fifo_filled_bytes;
-    const uint32_t tx_ddr_step = vspa_dmem_proxy_ro->info.tx_config.ddr_step;
-    // if (empty_size < tx_ddr_step)
-    //     return 0;
-
-    if (empty_size > contiguousBytesSize)
-        empty_size = contiguousBytesSize;
-
-    if (write_size > empty_size)
-        write_size = empty_size;
-
-    if (fifo_filled_bytes > txState.fifo_size)
-    {
-        // printf("\n TX underrun , exit (busy=0x%08x txState.bytes_produced=0x%08x txState.bytes_consumed=0x%08x)\n",
-        //     fifo_filled_bytes,
-        //     txState.bytes_produced,
-        //     txState.bytes_consumed);
-    }
-
-    if (write_size <= 0)
-        return 0;
-
-    // xfer data
-    auto ddr_dst = vl_iqflood_ddr_addr + txState.fifo_start_addr + txState.fifo_offset;
-    port->dmem_sync_to_cpu(ddr_dst, write_size);
-    memcpy(ddr_dst, src, write_size);
-    port->dmem_sync_to_device(ddr_dst, write_size);
-
-    // ready to send new data
-    txState.bytes_produced += write_size;
-    vspa_dmem_proxy_wo->data_flow.tx.produced = txState.bytes_produced;
-    // printf("ss %i %i\n", txState.bytes_produced, txState.bytes_produced / tx_ddr_step);
-
-    txState.fifo_offset += write_size;
-    if (txState.fifo_offset >= txState.fifo_size)
-        txState.fifo_offset = 0;
-
-    return write_size;
-}
-
-size_t VSPA_iqplayer::TxDataEmplace(void* src, size_t write_size)
-{
-    volatile VSPA_FIFO_State& txState = mTx;
-
-    port->dmem_sync_to_cpu(&vspa_dmem_proxy_ro->data_flow, sizeof(vspa_flow_control));
-    txState.bytes_consumed = vspa_dmem_proxy_ro->data_flow.tx.consumed;
-    const uint64_t fifo_filled_bytes = txState.bytes_produced - txState.bytes_consumed;
-    // if (fifo_filled_bytes > txState.fifo_size)
-    // {
-    //     printf("!!!IQPlayer tx fifo overflow\n");
-    // }
-
-    const uint32_t contiguousBytesSize = txState.fifo_size - txState.fifo_offset;
-    uint32_t empty_size = txState.fifo_size - fifo_filled_bytes;
-
-    if (empty_size > contiguousBytesSize)
-        empty_size = contiguousBytesSize;
-
-    if (write_size > empty_size)
-        write_size = empty_size;
-
-    if (fifo_filled_bytes > txState.fifo_size)
-    {
-        // printf("\n TX underrun , exit (busy=0x%08x txState.bytes_produced=0x%08x txState.bytes_consumed=0x%08x)\n",
-        //     fifo_filled_bytes,
-        //     txState.bytes_produced,
-        //     txState.bytes_consumed);
-    }
-
-    if (write_size <= 0)
-        return 0;
-
-    // xfer data
-    auto ddr_dst = vl_iqflood_ddr_addr + txState.fifo_start_addr + txState.fifo_offset;
-    port->dmem_sync_to_cpu(ddr_dst, write_size);
-    memcpy(ddr_dst, src, write_size);
-    port->dmem_sync_to_device(ddr_dst, write_size);
-
-    // ready to send new data
-    txState.fifo_offset += write_size;
-    if (txState.fifo_offset >= txState.fifo_size)
-        txState.fifo_offset = 0;
-
-    return write_size;
-}
-
-OpStatus VSPA_iqplayer::ClearStats()
-{
-    // const std::lock_guard<std::mutex> lock(mx);
-    printf_dbg_log("IQPlayer: clear stats\n");
-    const mbox_opc_e command = MBOX_OPC_GET_STATS_COUNT;
-    constexpr uint32_t reset_counter = (1 << 20);
-    uint32_t counter_idx = 0;
-
-    uint32_t hiword = command << 24 | reset_counter | (counter_idx & 0xFFFF);
-    uint32_t loword = 0;
-    uint64_t value = (uint64_t(hiword) << 32) | loword;
-
-    vspa_dmem_proxy_wo->data_flow.tx.produced = 0;
-    return OpStatus::Success;
-    //return mailbox->Message(vspa_cpu_id, vspa_mbox_id, value);
 }
 
 OpStatus VSPA_iqplayer::SetDCOffset(complex16_t offset)
@@ -795,6 +622,36 @@ OpStatus VSPA_iqplayer::PrepareRx()
     if (mailbox->Message(vspa_cpu_id, vspa_mbox_id, value, &response) != OpStatus::Success)
         return OpStatus::Error;
     return (response & 0xFF) == 0 ? OpStatus::Success : OpStatus::Error;
+}
+
+void VSPA_iqplayer::ScanFeatures()
+{
+    const mbox_opc_e command = MBOX_OPC_GET_FEATURES_MAP;
+    uint32_t hiword = command << 24;
+
+    uint64_t value = uint64_t(hiword) << 32;
+    uint64_t response = 2;
+    if (mailbox->Message(vspa_cpu_id, vspa_mbox_id, value, &response) != OpStatus::Success)
+        return;
+    const uint32_t vspa_addr = (response >> 32) & 0xFFFFFFFFu;
+
+    uint8_t* BAR2_addr = reinterpret_cast<uint8_t*>(port->GetBar(LA9310_WINDOW_BAR2).vaddr);
+    uint8_t* vspa_data_base = reinterpret_cast<uint8_t*>(BAR2_addr + 0x400000);
+    feature_t *feature_table_va = reinterpret_cast<feature_t*>(vspa_data_base + vspa_addr);
+    for (int i=0; i<32; ++i)
+    {
+        void *feature_va = reinterpret_cast<void*>(vspa_data_base + (feature_table_va->address << 1)); // VSPA half words to bytes
+        switch(feature_table_va->feature)
+        {
+        case F_VSPA_L1_TRACE:
+            tracer = std::make_shared<VSPA_Trace>(port, feature_va);
+            break;
+        case F_VSPA_NONE:
+        default:
+            break;
+        }
+        ++feature_table_va;
+    }
 }
 
 } // namespace lime
