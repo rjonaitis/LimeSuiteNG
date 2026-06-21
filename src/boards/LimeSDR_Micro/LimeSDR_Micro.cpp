@@ -343,13 +343,13 @@ static OpStatus SetLA9310SamplingRate(std::shared_ptr<LimeSDR_Micro_M4> la9310, 
     {
         adc_divider_mask = 0xF;
         dac_divider_mask = 0x1;
-        oversample = 1;
+        oversample = 4;
     }
     else if (sampleRate <= 40e6)
     {
         adc_divider_mask = 0xF;
         dac_divider_mask = 0x1;
-        oversample = 1;
+        oversample = 2;
     }
     else if (sampleRate <= 80e6)
     {

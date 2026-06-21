@@ -20,6 +20,8 @@ enum {
     T_INT_BUFFER,
     T_UNDERRUN,
     T_OVERRUN,
+    T_XFER_ERROR,
+    T_XFER_CFG_ERROR,
 };
 
 typedef struct l1_trace_state_s {
