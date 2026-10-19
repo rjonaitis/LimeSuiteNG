@@ -10,3 +10,7 @@ target_sources(
             pnlGPIO_Interface.cpp
             pnlMicro.cpp
             pnlsSDR.cpp)
+
+if (UNIX AND NOT APPLE)
+    target_sources(limeGUI PRIVATE pnlMicro.cpp)
+endif()
