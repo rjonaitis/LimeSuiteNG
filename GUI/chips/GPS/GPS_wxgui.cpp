@@ -25,8 +25,7 @@ GPS_wxgui::GPS_wxgui(wxWindow* parent, wxWindowID id, const wxPoint& pos, const 
     mainSizer->SetNonFlexibleGrowMode(wxFLEX_GROWMODE_SPECIFIED);
 
     wxStaticBoxSizer* ppsBox = new wxStaticBoxSizer(new wxStaticBox(this, wxID_ANY, "PPS"), wxHORIZONTAL);
-    const wxArrayString ppsChoices = { "Disabled", "AfterFirstFix", "3D Fix only", "2D/3D Fix only", "Always" };
-    ppsAvailability = new wxChoice(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, ppsChoices);
+    ppsAvailability = new wxChoice(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, { "Disabled", "AfterFirstFix", "3D Fix only", "2D/3D Fix only", "Always" });
     ppsAvailability->Connect(wxEVT_CHOICE, wxCommandEventHandler(GPS_wxgui::OnPPSChange), nullptr, this);
     ppsBox->Add(ppsAvailability);
 
